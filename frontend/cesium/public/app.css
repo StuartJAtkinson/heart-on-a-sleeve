@@ -150,6 +150,11 @@ body {
   margin-bottom: 4px;
 }
 
+/* ── Print-version rows (preview button + download button) ────────────────── */
+.print-ver-row { display: flex; gap: 6px; }
+.print-ver-row .btn { flex: 1; }
+.print-ver-row .btn.dl { flex: 0 0 34px; padding-left: 0; padding-right: 0; text-align: center; }
+
 /* ── Parameter rows ───────────────────────────────────────────────────────── */
 .param-row {
   display: flex;
@@ -326,13 +331,13 @@ body {
 }
 .brand-select:focus { border-color: var(--accent); }
 
-/* Click-to-position branding picker */
+/* Click-to-position branding picker — dots overlay the 80×80 shape preview */
 .brand-pos-picker {
-  display: flex; align-items: center; gap: 10px; margin-top: 6px;
+  position: relative; width: 80px; height: 80px; margin-top: 6px;
 }
-.brand-shape-preview { display: block; flex-shrink: 0; }
+.brand-shape-preview { display: block; }
 .brand-pos-dots {
-  position: relative; flex: 1; height: 80px;
+  position: absolute; inset: 0;
 }
 /* Each position dot */
 .brand-pos-dot {

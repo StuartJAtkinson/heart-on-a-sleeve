@@ -314,21 +314,52 @@ export class Viewer3D {
     // and clears any buildings beneath it. World: north = −Z, south = +Z; 'bottom' = south.
     const brand = (s.branding && s.branding.text.trim()) ? s.branding : null;
     let brandRect: { x0:number; x1:number; z0:number; z1:number } | null = null;
-    let brandPlace: { txt:string; size:number; depth:number; cx:number; cz:number } | null = null;
+    let brandGeo: THREE.BufferGeometry | null = null;
+    let brandPos: { cx:number; cz:number } | null = null;
     if (brand) {
       const txt = brand.text.toUpperCase();
       const minD = Math.min(SW, SD);
-      const size = Math.min(minD * 0.075, (SW * 0.86) / Math.max(8, txt.length * 0.62));
-      const estW = txt.length * 0.62 * size;
-      const margin = minD * 0.08;
+      const isRound = s.merch === 'coaster' && s.coasterShape !== 'square';
+      const isBanner = brand.style === 'banner';
+      // Same targets svg-renderer.ts's stamp uses: 42% width, 7.5%-height cap, 5% margin.
+      // The 3D text is measured from the ACTUAL extruded glyph geometry (not a guessed
+      // average-character-width constant) and scaled to hit that exact target — that's
+      // what keeps this extrusion aligned with the flat SVG stamp instead of drifting.
+      const fitW = (isRound ? minD : SW) * 0.42;
+      const heightCap = minD * 0.075;
+      const margin = minD * 0.05;
       const isTop = brand.position.startsWith('top');
       const isLeft = brand.position.endsWith('left');
       const isRight = brand.position.endsWith('right');
-      const cz = isTop ? (-SD/2 + margin + size*0.7) : (SD/2 - margin - size*0.7);
-      const cx = isLeft ? (-SW/2 + margin + estW/2) : isRight ? (SW/2 - margin - estW/2) : 0;
-      brandPlace = { txt, size, depth: Math.max(3, size*0.35), cx, cz };
-      brandRect  = { x0: cx - estW/2 - margin*0.4, x1: cx + estW/2 + margin*0.4,
-                     z0: cz - size, z1: cz + size };
+
+      try {
+        const geo = new TextGeometry(txt, { font: brandFont(), size: 10, depth: 3, curveSegments: 4, bevelEnabled: false });
+        geo.computeBoundingBox();
+        const bb = geo.boundingBox!;
+        const rawW = Math.max(0.001, bb.max.x - bb.min.x);
+        const rawH = Math.max(0.001, bb.max.y - bb.min.y);
+        const scale = Math.min(fitW / rawW, heightCap / rawH);
+        const estW = rawW * scale, estH = rawH * scale;
+        geo.translate(-(bb.max.x + bb.min.x) / 2, -(bb.max.y + bb.min.y) / 2, 0);
+        geo.scale(scale, scale, 1);
+        geo.rotateX(-Math.PI / 2);
+        const cz = isTop ? (-SD/2 + margin + estH*0.7) : (SD/2 - margin - estH*0.7);
+        const cx = isLeft ? (-SW/2 + margin + estW/2) : isRight ? (SW/2 - margin - estW/2) : 0;
+        brandGeo = geo;
+        brandPos = { cx, cz };
+
+        // Banner clears a full-width band — same rule the plate's own edge uses to
+        // stop buildings — so the whole bar reads clean, not just around the letters.
+        if (isBanner) {
+          const barH = heightCap * 1.6;
+          brandRect = isTop
+            ? { x0: -SW/2, x1: SW/2, z0: -SD/2, z1: -SD/2 + barH }
+            : { x0: -SW/2, x1: SW/2, z0: SD/2 - barH, z1: SD/2 };
+        } else {
+          brandRect = { x0: cx - estW/2 - margin*0.4, x1: cx + estW/2 + margin*0.4,
+                        z0: cz - estH, z1: cz + estH };
+        }
+      } catch { /* font/extrude failure — skip the stamp */ }
     }
 
     let nB = 0;
@@ -350,24 +381,15 @@ export class Viewer3D {
     this._elText('status-3d', '');
 
     // Build the extruded stamp after the buildings so it joins the same entry animation.
-    if (brandPlace) {
-      try {
-        const geo = new TextGeometry(brandPlace.txt, {
-          font: brandFont(), size: brandPlace.size, depth: brandPlace.depth,
-          curveSegments: 4, bevelEnabled: false,
-        });
-        geo.computeBoundingBox();
-        const bb = geo.boundingBox!;
-        geo.translate(-(bb.max.x+bb.min.x)/2, -(bb.max.y+bb.min.y)/2, 0);
-        geo.rotateX(-Math.PI/2);                       // lie flat, extrude up (+Y)
-        const mat = _mat(STAMP_GREEN, 0x33ff77, { roughness:0.6, metalness:0.1 });
-        mat.wireframe = true; mat.transparent = true; mat.opacity = 0; mat.color.set(mat._wireColor);
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.set(brandPlace.cx, 0, brandPlace.cz);
-        mesh.castShadow = mesh.receiveShadow = true;
-        this.osmGroup.add(mesh);
-        this.animMats.push(mat); this.allMats.push(mat);   // join the wireframe→solid entry
-      } catch { /* font/extrude failure — skip the stamp */ }
+    // Geometry was already measured, scaled and positioned above — just place the mesh.
+    if (brandGeo && brandPos) {
+      const mat = _mat(STAMP_GREEN, 0x33ff77, { roughness:0.6, metalness:0.1 });
+      mat.wireframe = true; mat.transparent = true; mat.opacity = 0; mat.color.set(mat._wireColor);
+      const mesh = new THREE.Mesh(brandGeo, mat);
+      mesh.position.set(brandPos.cx, 0, brandPos.cz);
+      mesh.castShadow = mesh.receiveShadow = true;
+      this.osmGroup.add(mesh);
+      this.animMats.push(mat); this.allMats.push(mat);   // join the wireframe→solid entry
     }
 
     // Start loop. The building wireframe→solid entry is held back (entryReady stays
@@ -560,7 +582,9 @@ export class Viewer3D {
       this.wiresOn=!this.wiresOn;
       this.scene.background.set(this.wiresOn?0x000000:BG);
       if(this.scene.fog)this.scene.fog.color.set(this.wiresOn?0x000000:BG);
-      this.allMats.forEach(m=>{m.wireframe=this.wiresOn;m.color.set(this.wiresOn?m._wireColor:m._solidColor);});
+      // Textured mats (SVG ground) need WHITE on un-wireframe — colour multiplies the
+      // texture, so _solidColor would blank the SVG out.
+      this.allMats.forEach(m=>{m.wireframe=this.wiresOn;m.color.set(this.wiresOn?m._wireColor:(m.map?0xffffff:m._solidColor));});
       wBtn.classList.toggle('on',this.wiresOn); wBtn.textContent=this.wiresOn?'⬡ Solid':'⬡ Wireframe';
     });
 

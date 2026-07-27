@@ -1011,6 +1011,14 @@ const svgBrandText = 'WAKEFIELD GREEN PARTY';
 function svgBranding(): Branding | null {
   return svgBrandOn ? { text: svgBrandText, style: svgBrandStyle, position: svgBrandPos } : null;
 }
+// Signature of the branding baked into the cached STL blobs. The print view
+// compares it against the live branding and auto-regenerates when stale, so
+// Print always INHERITS the current stamp placement (map → svg → 3d → print).
+let _stlBrandSig = '';
+function brandSig(): string {
+  const b = svgBranding();
+  return b ? `${b.text}|${b.position}|${b.style}` : '';
+}
 let svgNatW = 0, svgNatH = 0, svgTx = 0, svgTy = 0, svgScl = 1;
 let svgCurrentUrl = '';
 let svgCurrentStl: any = null;
@@ -1028,14 +1036,19 @@ function b64ToBlobUrl(b64: string, mime = 'model/stl'): string {
 }
 
 function stlRespToUrls(r: any): any {
-  if (svgCurrentStl) for (const k of ['stl_buildings_url', 'stl_land_url', 'stl_water_url', 'stl_solid_url']) {
+  if (svgCurrentStl) for (const k of ['stl_buildings_url', 'stl_land_url', 'stl_water_url', 'stl_solid_url',
+                                      'stl_one_url', 'stl_flat_urban_url', 'stl_flat_water_url', 'stl_flat_land_url']) {
     if (typeof svgCurrentStl[k] === 'string' && svgCurrentStl[k].startsWith('blob:')) URL.revokeObjectURL(svgCurrentStl[k]);
   }
   const o: any = {};
-  if (r.stl_buildings) o.stl_buildings_url = b64ToBlobUrl(r.stl_buildings);
-  if (r.stl_land)      o.stl_land_url      = b64ToBlobUrl(r.stl_land);
-  if (r.stl_water)     o.stl_water_url     = b64ToBlobUrl(r.stl_water);
-  if (r.stl_solid)     o.stl_solid_url     = b64ToBlobUrl(r.stl_solid);
+  if (r.stl_buildings)  o.stl_buildings_url  = b64ToBlobUrl(r.stl_buildings);
+  if (r.stl_land)       o.stl_land_url       = b64ToBlobUrl(r.stl_land);
+  if (r.stl_water)      o.stl_water_url      = b64ToBlobUrl(r.stl_water);
+  if (r.stl_solid)      o.stl_solid_url      = b64ToBlobUrl(r.stl_solid);
+  if (r.stl_one)        o.stl_one_url        = b64ToBlobUrl(r.stl_one);
+  if (r.stl_flat_urban) o.stl_flat_urban_url = b64ToBlobUrl(r.stl_flat_urban);
+  if (r.stl_flat_water) o.stl_flat_water_url = b64ToBlobUrl(r.stl_flat_water);
+  if (r.stl_flat_land)  o.stl_flat_land_url  = b64ToBlobUrl(r.stl_flat_land);
   return o;
 }
 
@@ -1168,11 +1181,16 @@ function svgInitBranding() {
     }
   }
 
-  // Position dots — rect shapes get corners, circles/squares get top/bottom only.
-  const hasCorners = !isCircle;
+  // Position dots — square/rect shapes get corners; circle AND hexagon get
+  // top/bottom only (a pointy-top hex clips corner text, a circle has no corners).
+  const hasCorners = !isCircle && !isHex;
   const positions: BrandPos[] = hasCorners
     ? ['top', 'bottom', 'top-left', 'top-right', 'bottom-left', 'bottom-right']
     : ['top', 'bottom'];
+  // Reset BEFORE drawing dots so the active marker lands on a dot that exists.
+  if (!positions.includes(svgBrandPos)) {
+    svgBrandPos = 'bottom';
+  }
   if (dotsWrap) {
     dotsWrap.innerHTML = '';
     for (const pos of positions) {
@@ -1188,11 +1206,6 @@ function svgInitBranding() {
       });
       dotsWrap.appendChild(dot);
     }
-  }
-
-  // Fallback if current pos isn't in the available set.
-  if (!positions.includes(svgBrandPos)) {
-    svgBrandPos = 'bottom';
   }
 
   const sync = () => {
@@ -1334,6 +1347,11 @@ let _printViewer: any = null;
 let _printScene: any = null;
 
 async function openPrintView(scene: any): Promise<void> {
+  // One-colour + flat 3-colour URLs live in the STL cache, not the 3D-map scene — merge here
+  scene.stlOne       = svgCurrentStl?.stl_one_url ?? null;
+  scene.stlFlatUrban = svgCurrentStl?.stl_flat_urban_url ?? null;
+  scene.stlFlatWater = svgCurrentStl?.stl_flat_water_url ?? null;
+  scene.stlFlatLand  = svgCurrentStl?.stl_flat_land_url ?? null;
   _printScene = scene;
   document.getElementById('viewer-print-view')!.style.display = 'flex';
   setSaveNamePreview('print-save-name-preview');
@@ -1344,6 +1362,12 @@ async function openPrintView(scene: any): Promise<void> {
   } else {
     _printViewer.setScene(scene);
   }
+  // Print must INHERIT the branding placement live on the SVG/3D stages — if the
+  // stamp text/position changed since these STL blobs were baked, regenerate
+  // before showing them rather than silently previewing stale geometry.
+  if (svgCurrentStl && _stlBrandSig !== brandSig()) {
+    try { await regenPrintStl(); } catch { /* fall back to the stale cached blobs */ }
+  }
   await _printViewer.loadScene(scene);
 }
 
@@ -1351,17 +1375,35 @@ async function openPrintView(scene: any): Promise<void> {
 async function regenPrintStl(): Promise<void> {
   if (!_printScene) return;
   const { west, south, east, north, merch, coasterShape } = _printScene;
+  const sig = brandSig();
   const r = await fetch('/api/generate/stl', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ bbox: { west, south, east, north }, merch_type: merch, coaster_shape: coasterShape }),
+    body: JSON.stringify({ bbox: { west, south, east, north }, merch_type: merch, coaster_shape: coasterShape,
+                           moat_text: svgBranding()?.text ?? null,
+                           moat_position: svgBranding()?.position ?? 'bottom',
+                           moat_style: svgBranding()?.style ?? 'outline' }),
   });
   if (!r.ok) throw new Error(`Server ${r.status}`);
   const res = await r.json();
   for (const [field, key] of [['stlBuildings', 'stl_buildings'], ['stlLand', 'stl_land'],
-                              ['stlWater', 'stl_water'], ['stlSolid', 'stl_solid']] as const) {
+                              ['stlWater', 'stl_water'], ['stlSolid', 'stl_solid'], ['stlOne', 'stl_one'],
+                              ['stlFlatUrban', 'stl_flat_urban'], ['stlFlatWater', 'stl_flat_water'],
+                              ['stlFlatLand', 'stl_flat_land']] as const) {
     const cur = _printScene[field];
     if (typeof cur === 'string' && cur.startsWith('blob:')) URL.revokeObjectURL(cur);
     _printScene[field] = res[key] ? b64ToBlobUrl(res[key]) : null;
+  }
+  _stlBrandSig = sig;
+  // Keep the STL cache (svgCurrentStl) in sync too — openPrintView/regenerate-on-stale
+  // logic and the download buttons both read from it, not just the live print scene.
+  if (svgCurrentStl) {
+    for (const [cacheKey, sceneField] of [['stl_buildings_url', 'stlBuildings'], ['stl_land_url', 'stlLand'],
+                                          ['stl_water_url', 'stlWater'], ['stl_solid_url', 'stlSolid'],
+                                          ['stl_one_url', 'stlOne'],
+                                          ['stl_flat_urban_url', 'stlFlatUrban'], ['stl_flat_water_url', 'stlFlatWater'],
+                                          ['stl_flat_land_url', 'stlFlatLand']] as const) {
+      svgCurrentStl[cacheKey] = _printScene[sceneField];
+    }
   }
   _printViewer?.setScene(_printScene);
 }
@@ -1514,9 +1556,13 @@ const abort = new AbortController();
 
   // Fire STL only after OSM data is cached — avoids a simultaneous double-Overpass hit
   osmP.then(() => {
+    const sig = brandSig();
     fetchJson('/api/generate/stl', {
       bbox, merch_type: merchType, coaster_shape: coasterShape,
-    }).then((r: any) => { svgCurrentStl = stlRespToUrls(r); onStlReady(); }).catch(() => { /* ignore */ });
+      moat_text: svgBranding()?.text ?? null,
+      moat_position: svgBranding()?.position ?? 'bottom',
+      moat_style: svgBranding()?.style ?? 'outline',
+    }).then((r: any) => { svgCurrentStl = stlRespToUrls(r); _stlBrandSig = sig; onStlReady(); }).catch(() => { /* ignore */ });
   }).catch(() => { /* osmP already handles its own error */ });
 
   // Estimate runs in background — updates status bar and refines progress bar when it resolves.

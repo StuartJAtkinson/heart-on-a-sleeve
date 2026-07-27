@@ -314,6 +314,9 @@ export function renderSvg(opts: SvgRenderOptions): SVGSVGElement {
     const fitW = (shapeKind === 'rect' ? W : minD) * 0.42;
     const fs   = Math.min(minD * 0.075, fitW / Math.max(8, txt.length * 0.46));
     const isTop = branding.position.startsWith('top');
+    const isLeft = branding.position.endsWith('left');
+    const isRight = branding.position.endsWith('right');
+    const anchor = isLeft ? 'start' : isRight ? 'end' : 'middle';
 
     if (shapeKind === 'circle' && branding.style === 'outline') {
       // Curved text along a half-width arc on the rim.
@@ -331,24 +334,25 @@ export function renderSvg(opts: SvgRenderOptions): SVGSVGElement {
       t.appendChild(tp);
       g.appendChild(t);
     } else if (branding.style === 'banner') {
-      // Solid bar (half-width, centered) with reversed-out white text.
+      // Solid full-width bar with reversed-out white text, aligned per position
+      // (the clip path trims the bar to the shape on circle/hex coasters).
       const bh = fs * 1.5;
       const by = isTop ? 0 : H - bh;
-      const bw = W / 2;                  // half the shape width
-      const bx = (W - bw) / 2;           // centered
-      g.appendChild(el('rect', { x: bx, y: by, width: bw, height: bh, fill: GREEN_PARTY }));
+      g.appendChild(el('rect', { x: 0, y: by, width: W, height: bh, fill: GREEN_PARTY }));
+      const tx = isLeft ? W * 0.04 : isRight ? W * 0.96 : W / 2;
       const t = el('text', {
-        x: W/2, y: by + bh/2, 'text-anchor': 'middle', 'dominant-baseline': 'central',
+        x: tx, y: by + bh/2, 'text-anchor': anchor, 'dominant-baseline': 'central',
         'font-family': IMPACT_FONT, 'font-weight': 'bold', 'font-size': fs, fill: '#fff',
       });
       t.textContent = txt;
       g.appendChild(t);
     } else {
-      // Straight Impact-outline text — half-width stamp, centered on the edge.
+      // Straight Impact-outline text — anchored to the chosen edge/corner.
       const padY = (shapeKind === 'hexagon' ? 0.16 : 0.05) * H;
       const y = isTop ? padY + fs : H - padY;
+      const tx = isLeft ? W * 0.05 : isRight ? W * 0.95 : W / 2;
       const t = el('text', {
-        x: W/2, y, 'text-anchor': 'middle',
+        x: tx, y, 'text-anchor': anchor,
         'font-family': IMPACT_FONT, 'font-weight': 'bold', 'font-size': fs,
         fill: STAMP_GREEN,
       });

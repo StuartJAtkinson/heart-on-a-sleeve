@@ -1,0 +1,17 @@
+- generic [ref=f3e2]:
+  - generic [ref=f3e3]:
+    - heading "Heart on a Sleeve" [level=1] [ref=f3e4]
+    - paragraph [ref=f3e5]: Map-based merchandise design
+  - generic [ref=f3e6]:
+    - generic [ref=f3e7]: Sign in to your account
+    - generic [ref=f3e8]:
+      - generic [ref=f3e9]: Email
+      - textbox "you@example.com" [ref=f3e10]
+    - generic [ref=f3e11]:
+      - generic [ref=f3e12]: Password
+      - textbox "••••••••" [ref=f3e13]
+    - generic [ref=f3e15] [cursor=pointer]: Forgot your password?
+    - button "Sign in" [ref=f3e17] [cursor=pointer]
+    - generic [ref=f3e18]: Don't have an account? Create one
+    - link "← Back to map" [ref=f3e20] [cursor=pointer]:
+      - /url: /

@@ -417,9 +417,19 @@
     <button class="btn" id="btn-print-regen" style="border-color:#4a9eff;color:#4a9eff">⟳ Regenerate STL</button>
     <div id="regen-status-print" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:14px;"></div>
     <div class="divider"></div>
-    <div class="dl-label">Download print files:</div>
-    <button class="btn" id="dl-multicolour-print" style="border-color:#4a9eff;color:#4a9eff">↓ 3-colour set (buildings · land · water)</button>
-    <a class="btn" id="dl-singlecolour-print" download="buildings.stl" style="border-color:#909088;color:#b0b0a8">↓ Single colour (buildings &amp; roads)</a>
+    <div class="dl-label">Print versions — click to preview, ↓ to download:</div>
+    <div class="print-ver-row">
+      <button class="btn" id="ver-one-print">1 colour · single piece</button>
+      <button class="btn dl" id="dl-one-print" title="Download 1 STL">↓</button>
+    </div>
+    <div class="print-ver-row">
+      <button class="btn" id="ver-flat-print">3 colour · one block</button>
+      <button class="btn dl" id="dl-flat-print" title="Download 3 STLs (urban · water · land)">↓</button>
+    </div>
+    <div class="print-ver-row">
+      <button class="btn" id="ver-layers-print">3 colour · stacked layers</button>
+      <button class="btn dl" id="dl-layers-print" title="Download 3 STLs (buildings · water · land)">↓</button>
+    </div>
     <div class="divider"></div>
     <button class="btn" id="btn-print-back">← 3D Map</button>
   </div>

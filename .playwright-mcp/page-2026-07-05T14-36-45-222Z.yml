@@ -1,0 +1,74 @@
+- generic [active]:
+  - generic [ref=f4e7]:
+    - link "Cesium ion" [ref=f4e10] [cursor=pointer]:
+      - /url: https://cesium.com/
+      - img "Cesium ion" [ref=f4e11]
+    - text: Data attribution
+  - generic [ref=f4e12]:
+    - heading "Heart on a Sleeve" [level=2] [ref=f4e13]
+    - textbox "🔍 Search place…" [ref=f4e15]
+    - generic [ref=f4e16]:
+      - heading "Merch Type" [level=3] [ref=f4e17]
+      - generic [ref=f4e18]: Fabrics & Transfers
+      - generic [ref=f4e19]:
+        - generic [ref=f4e20] [cursor=pointer]:
+          - generic [ref=f4e21]: 👕
+          - text: T-Shirt
+          - generic [ref=f4e22]: 3:4
+        - generic [ref=f4e23] [cursor=pointer]:
+          - generic [ref=f4e24]: ☕
+          - text: Mug
+          - generic [ref=f4e25]: 9:3
+        - generic [ref=f4e26] [cursor=pointer]:
+          - generic [ref=f4e27]: 👜
+          - text: Tote Bag
+          - generic [ref=f4e28]: 2:3
+      - separator [ref=f4e29]
+      - generic [ref=f4e30]: 3D Prints
+      - generic [ref=f4e31]:
+        - generic [ref=f4e32] [cursor=pointer]:
+          - generic [ref=f4e33]: ⬜
+          - text: Coaster
+          - generic [ref=f4e34]: 1:1
+        - generic [ref=f4e35] [cursor=pointer]:
+          - generic [ref=f4e36]: 🟫
+          - text: Placemat
+          - generic [ref=f4e37]: 14:10
+        - generic [ref=f4e38] [cursor=pointer]:
+          - generic [ref=f4e39]: ⛰
+          - text: Relief
+          - generic [ref=f4e40]: 1:1
+    - generic [ref=f4e41]:
+      - heading "Select Area" [level=3] [ref=f4e42]
+      - generic [ref=f4e43]: Click a product above to start drawing
+    - button "Generate Design" [disabled] [ref=f4e44]
+    - generic [ref=f4e47]:
+      - generic [ref=f4e48]: ui-test-1783262196685@example.com
+      - button "⊞ My Designs" [ref=f4e49] [cursor=pointer]
+      - button "↩ Logout" [ref=f4e50] [cursor=pointer]
+  - generic:
+    - text: Left drag — pan
+    - text: Right drag — zoom
+    - text: Middle drag — tilt
+    - text: Scroll — zoom
+  - text: "Saves as: Saves as: Saves as:"
+  - generic:
+    - generic:
+      - generic: My Designs
+      - button "×"
+    - generic:
+      - generic: Loading…
+  - generic:
+    - generic:
+      - text: Map data ©
+      - link "OpenStreetMap" [ref=f4e51] [cursor=pointer]:
+        - /url: https://www.openstreetmap.org/copyright
+      - text: "contributors (ODbL) · Elevation:"
+      - link "OpenTopoData" [ref=f4e52] [cursor=pointer]:
+        - /url: https://www.opentopodata.org/
+      - text: "(SRTM) · Globe:"
+      - link "CesiumJS" [ref=f4e53] [cursor=pointer]:
+        - /url: https://cesium.com/
+      - text: "· 3D:"
+      - link "three.js" [ref=f4e54] [cursor=pointer]:
+        - /url: https://threejs.org/

@@ -220,6 +220,8 @@ async def generate_stl(req: STLGenerationRequest):
             collar_mm=req.collar_mm,
             coaster_shape=req.coaster_shape,
             moat_text=req.moat_text,
+            moat_position=req.moat_position,
+            moat_style=req.moat_style,
         ))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"STL generation failed: {e}")

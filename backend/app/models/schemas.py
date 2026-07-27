@@ -47,8 +47,10 @@ class STLGenerationRequest(BaseModel):
     water_expand_mm: float = 0.5   # expand water bodies by this amount
     min_bldg_mm:     float = 1.0   # minimum building height
     collar_mm:       float = 1.0   # outer collar width on base + lid
-    # Moat text — "WAKEFIELD GREEN PARTY" carved through land, surrounded by blue water
+    # Moat text — branding carved through land, surrounded by blue water
     moat_text: str | None = None
+    moat_position: str = "bottom"  # top/bottom[-left|-right] — mirrors the SVG stamp position
+    moat_style: str = "outline"    # outline | banner — mirrors the SVG stamp style
     # Legacy (ignored — kept for backward compat with old callers)
     height_mm: float = 4.0
     base_thickness_mm: float = 2.0

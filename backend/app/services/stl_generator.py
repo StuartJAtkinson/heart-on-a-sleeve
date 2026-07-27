@@ -140,13 +140,15 @@ def _make_text_polygon(
     plate_w: float,
     plate_h: float,
     target_width_mm: float | None = None,
+    position: str = 'bottom',
 ) -> tuple[Polygon, tuple[float, float, float, float]]:
-    """Convert text string to a centred shapely Polygon in plate-mm coords.
+    """Convert text string to a positioned shapely Polygon in plate-mm coords.
 
     Returns (polygon, bounds) where bounds = (minx, miny, maxx, maxy) in mm.
-    The polygon is centred horizontally and sits at the bottom with a 2 mm margin.
+    Width spans 42% of the plate (matching the SVG stamp exactly); position is
+    one of top/bottom/top-left/top-right/bottom-left/bottom-right, 5% margin.
     """
-    target_w = target_width_mm or plate_w * 0.70  # 70 % of plate width
+    target_w = target_width_mm or plate_w * 0.42  # mirror svg-renderer.ts fitW
 
     try:
         tt = _get_font()
@@ -200,16 +202,24 @@ def _make_text_polygon(
 
         merged = unary_union(char_polys) if len(char_polys) > 1 else char_polys[0]
 
-        # Centre horizontally and snap to bottom with 2 mm margin
+        # Place per requested position with a 5% margin (mirrors the SVG stamp).
+        # shapely_translate handles Polygon AND MultiPolygon (multi-letter text)
+        # and preserves letter counters — a manual exterior-ring rebuild does not.
         b = merged.bounds
-        text_w = b[2] - b[0]
-        shift_x = (plate_w - text_w) / 2 - b[0]
-        shift_y = 2.0 - b[1]  # 2 mm bottom margin
+        text_w, text_h = b[2] - b[0], b[3] - b[1]
+        mx, my = plate_w * 0.05, plate_h * 0.05
+        if position.endswith('left'):
+            shift_x = mx - b[0]
+        elif position.endswith('right'):
+            shift_x = plate_w - mx - text_w - b[0]
+        else:
+            shift_x = (plate_w - text_w) / 2 - b[0]
+        if position.startswith('top'):
+            shift_y = plate_h - my - text_h - b[1]
+        else:
+            shift_y = my - b[1]
 
-        centred = Polygon(
-            [(px + shift_x, py + shift_y) for px, py in merged.exterior.coords]
-        ) if hasattr(merged, "exterior") else merged
-
+        centred = shapely_translate(merged, xoff=shift_x, yoff=shift_y)
         return centred, centred.bounds
 
     except Exception:
@@ -262,6 +272,10 @@ LAND_END_DEF     = BLDG_H_DEFAULT            # = 4.0 mm (flush with buildings)
 MIN_BLDG_H       = 1.0   # minimum building height
 GAP_CLOSE_MM     = 0.8   # kept for API compat; gap-close processing removed
 WATER_EXPAND     = 0.5   # how much water expands beyond its OSM boundary
+MIN_STROKE_MM    = 0.2   # printable floor for road/river strokes — thin ones are exaggerated up to this
+ONE_COLOUR_SPAN  = 2.0   # roads/buildings height above the baseplate on the single-piece print (kept
+                          # low so thin road strokes aren't tall skinny (flimsy) pillars)
+BANNER_BAND_FRAC = 0.14  # banner clear-band height as a fraction of plate_h — mirrors the SVG bar
 
 
 class STLGenerator:
@@ -282,8 +296,10 @@ class STLGenerator:
         min_bldg_mm:     float = MIN_BLDG_H,
         collar_mm:       float = 1.0,
         coaster_shape:   str   = 'square',
-        # Moat text: "WAKEFIELD GREEN PARTY" carved through land, surrounded by blue water
+        # Moat text — branding cutout through every layer to the baseplate
         moat_text: str | None = None,
+        moat_position: str = 'bottom',
+        moat_style: str = 'outline',
         # Legacy compat
         height_mm: float = BLDG_H_DEFAULT,
         base_thickness_mm: float = 2.0,
@@ -318,10 +334,12 @@ class STLGenerator:
 
         # Scale the SVG stroke widths (user-units) to plate-mm so printed roads/waterways
         # match the 3D-map preview exactly (same width as a fraction of the plate).
+        # Thin strokes are floored at MIN_STROKE_MM — otherwise scaling down to plate size
+        # can shrink a residential road or a stream below what's actually printable.
         svg_canvas_w = SVG_CANVAS_W.get(merch_type, 1000.0)
         road_scale = plate_w / svg_canvas_w
-        road_widths = {hw: w * road_scale for hw, w in SVG_ROAD_W.items()}
-        waterway_widths = {ww: w * road_scale for ww, w in SVG_WATERWAY_W.items()}
+        road_widths = {hw: max(w * road_scale, MIN_STROKE_MM) for hw, w in SVG_ROAD_W.items()}
+        waterway_widths = {ww: max(w * road_scale, MIN_STROKE_MM) for ww, w in SVG_WATERWAY_W.items()}
 
         return self._build(
             ways, way_pts, plate_w, plate_h,
@@ -329,7 +347,7 @@ class STLGenerator:
             gap_close_mm, water_expand_mm, min_bldg_mm, self._collar,
             road_widths, waterway_widths,
             topology, elev_grid, active_shape,
-            moat_text=moat_text,
+            moat_text=moat_text, moat_position=moat_position, moat_style=moat_style,
         )
 
     # ── Main build ─────────────────────────────────────────────────────────────
@@ -342,6 +360,8 @@ class STLGenerator:
         road_widths, waterway_widths,
         topology, elev_grid, coaster_shape: str = 'square',
         moat_text: str | None = None,
+        moat_position: str = 'bottom',
+        moat_style: str = 'outline',
     ) -> dict[str, BytesIO]:
 
         # ── 1. Collect raw shapes ──────────────────────────────────────────────
@@ -407,32 +427,101 @@ class STLGenerator:
         # Guarantee land top is always flush with building tops regardless of caller values
         land_end = bldg_h
 
+        # Moat text branding: computed ONCE, here, from the final plate/collar
+        # geometry — every piece below subtracts this exact same polygon, so the
+        # hole lines up perfectly across buildings/water/land/flat regardless of
+        # what roads, water or buildings happen to sit under it. It is carved
+        # LAST (after each piece's own shape is otherwise complete) straight
+        # through every layer down to the solid baseplate slab, which is left
+        # untouched so it shows through the hole rather than being pierced.
+        inner_plate = plate_shape.buffer(-0.1)
+        if inner_plate.is_empty:
+            inner_plate = plate_shape
+        text_cutout: Polygon | None = None
+        if moat_text:
+            text_poly, _ = _make_text_polygon(moat_text, plate_w, plate_h, position=moat_position)
+            if text_poly and not text_poly.is_empty:
+                cutout = make_valid(text_poly.intersection(inner_plate))
+                text_cutout = cutout if not cutout.is_empty else None
+
+        # Banner style: the SVG stamp draws a solid full-width bar (buildings/water hidden
+        # underneath it entirely, not just behind the letters). Mirror that here — a
+        # full-width clear zone that stops buildings/roads/water the same way the plate's
+        # own edge does — while land still fills the band and only the text (above) is an
+        # actual hole through it. Only ever top/bottom, matching the front-end's banner rule.
+        banner_clear: Polygon | None = None
+        if moat_text and moat_style == 'banner':
+            bar_h = plate_h * BANNER_BAND_FRAC
+            is_top = moat_position.startswith('top')
+            band = shapely_box(-collar, plate_h - bar_h, plate_w + collar, plate_h) if is_top \
+                else shapely_box(-collar, 0, plate_w + collar, bar_h)
+            clear = make_valid(band.intersection(inner_plate))
+            banner_clear = clear if not clear.is_empty else None
+
+        urban_clear: Polygon | None = None
+        if text_cutout is not None or banner_clear is not None:
+            parts = [g for g in (text_cutout, banner_clear) if g is not None]
+            urban_clear = make_valid(unary_union(parts)) if len(parts) > 1 else parts[0]
+
         bldg_meshes  = self._buildings_piece(
             bldg_polys, bldg_heights, raw_roads,
             bldg_union, road_union, urban_union,
             plate_shape, outer_shape, bldg_h, topology,
-            base_h=water_start,
+            base_h=water_start, text_cutout=urban_clear,
+        )
+        one_meshes = self._one_colour_piece(
+            bldg_polys, raw_roads, plate_shape, outer_shape,
+            base_h=water_start, span=ONE_COLOUR_SPAN, text_cutout=urban_clear,
         )
         water_meshes = self._water_piece(
             water_union, urban_union, plate_shape, water_start, water_end,
+            text_cutout=urban_clear,
         )
-        land_meshes, moat_channel = self._land_piece(
+        land_meshes = self._land_piece(
             urban_union, water_union, plate_shape, outer_shape,
             land_start, land_end, topology, elev_grid,
-            moat_text=moat_text,
+            text_cutout=text_cutout,
         )
-        # Add moat channel to the water piece so it renders blue (water material)
-        if moat_channel is not None and not moat_channel.is_empty:
-            chan_thick = max(land_end - land_start, 0.5)
-            for p in _geom_parts(moat_channel):
-                m = _extrude(p, chan_thick, z_base=land_start)
+        # ── 4. Flat 3-colour block — a geometric projection of the SVG. Three
+        # aligned slabs at uniform height (urban / water / everything-else); the
+        # slicer decides how to structure the colour changes. No separate
+        # baseplate layer here, so the text cutout simply punches all the way
+        # through the block. The collar/boundary wall is bucketed with urban
+        # (grey), matching the layered pieces' "collar belongs to buildings" rule
+        # — keeping it out of the land bucket so it reads as a distinct wall.
+        def _flat(geom) -> list[trimesh.Trimesh]:
+            meshes = []
+            for p in _geom_parts(make_valid(geom)):
+                m = _extrude(p, bldg_h)
                 if m:
-                    water_meshes.append(m)
+                    meshes.append(m)
+            return meshes
+
+        # Collar is never carved (same rule as the buildings/one-colour pieces below) —
+        # only the urban/water fill gets the text/banner cutout subtracted.
+        collar_ring = make_valid(outer_shape.difference(plate_shape))
+        flat_urban_only = make_valid(urban_union.intersection(plate_shape))
+        flat_water_shape = make_valid(water_union.difference(urban_union).intersection(plate_shape))
+        if urban_clear is not None:
+            flat_urban_only = make_valid(flat_urban_only.difference(urban_clear))
+            flat_water_shape = make_valid(flat_water_shape.difference(urban_clear))
+        flat_urban_shape = make_valid(unary_union([flat_urban_only, collar_ring]))
+        flat_land_shape = outer_shape.difference(flat_urban_shape).difference(flat_water_shape)
+        if text_cutout is not None:
+            flat_land_shape = make_valid(flat_land_shape.difference(text_cutout))
+        flat_urban = _flat(flat_urban_shape)
+        flat_water = _flat(flat_water_shape)
+        flat_land  = _flat(flat_land_shape)
+
         return {
             'buildings': _export(bldg_meshes),
             'water':     _export(water_meshes),
             'land':      _export(land_meshes),
             'solid':     _export(bldg_meshes + water_meshes + land_meshes),
+            'one':       _export(one_meshes),
+            'flat_urban': _export(flat_urban),
+            'flat_water': _export(flat_water),
+            'flat_land':  _export(flat_land),
         }
 
     # ── Buildings piece ────────────────────────────────────────────────────────
@@ -445,27 +534,36 @@ class STLGenerator:
         bldg_union, road_union, urban_union,
         plate_shape, outer_shape, bldg_h, topology,
         base_h: float = 0.0,
+        text_cutout: Polygon | None = None,
     ) -> list[trimesh.Trimesh]:
         meshes = []
-        # Outer collar walls — frame that water and lid sit inside
+        # Outer collar walls — frame that water and lid sit inside. Never carved:
+        # the moat cutout stays clear of the collar by its 5% margin.
         collar_ring = make_valid(outer_shape.difference(plate_shape))
         m = _extrude(collar_ring, bldg_h)
         if m:
             meshes.append(m)
-        # Solid base plate — joins all pillars and provides the floor for water/land
+        # Solid base plate — joins all pillars and provides the floor for water/land.
+        # Never carved: this is what shows through the moat cutout above it.
         if base_h > 0:
             m = _extrude(plate_shape, base_h)
             if m:
                 meshes.append(m)
 
+        def _piece(poly, plate_shape=plate_shape, text_cutout=text_cutout):
+            p = make_valid(poly.intersection(plate_shape))
+            if text_cutout is not None:
+                p = make_valid(p.difference(text_cutout))
+            return _geom_parts(p)
+
         if topology:
             for poly, h in zip(bldg_polys, bldg_heights):
-                for p in _geom_parts(make_valid(poly.intersection(plate_shape))):
+                for p in _piece(poly):
                     m = _extrude(p, h)
                     if m:
                         meshes.append(m)
             for poly in raw_roads:
-                for p in _geom_parts(make_valid(poly.intersection(plate_shape))):
+                for p in _piece(poly):
                     m = _extrude(p, bldg_h)
                     if m:
                         meshes.append(m)
@@ -474,16 +572,57 @@ class STLGenerator:
             # The base plate (0→base_h) is a clean flat slab; extrusions start above it.
             bldg_span = max(bldg_h - base_h, 0.5)
             for poly, h in zip(bldg_polys, bldg_heights):
-                for p in _geom_parts(make_valid(poly.intersection(plate_shape))):
+                for p in _piece(poly):
                     m = _extrude(p, bldg_span, z_base=base_h)
                     if m:
                         meshes.append(m)
             for poly in raw_roads:
-                for p in _geom_parts(make_valid(poly.intersection(plate_shape))):
+                for p in _piece(poly):
                     m = _extrude(p, bldg_span, z_base=base_h)
                     if m:
                         meshes.append(m)
 
+        return meshes
+
+    # ── One-colour piece (standalone single print) ────────────────────────────
+    # Same baseplate + collar as the layered buildings piece, but roads/buildings
+    # are capped at a flat, low `span` (not the full interlocking bldg_h) — a
+    # thin residential-road stroke printed 4 mm tall is a flimsy pillar; printed
+    # 2 mm tall on its own base it's sturdy. Ignores topology's per-building
+    # height entirely for the same reason — everything is one uniform low span.
+
+    def _one_colour_piece(
+        self, bldg_polys, raw_roads,
+        plate_shape, outer_shape,
+        base_h: float, span: float,
+        text_cutout: Polygon | None = None,
+    ) -> list[trimesh.Trimesh]:
+        meshes = []
+        collar_ring = make_valid(outer_shape.difference(plate_shape))
+        m = _extrude(collar_ring, base_h + span)
+        if m:
+            meshes.append(m)
+        if base_h > 0:
+            m = _extrude(plate_shape, base_h)
+            if m:
+                meshes.append(m)
+
+        def _piece(poly):
+            p = make_valid(poly.intersection(plate_shape))
+            if text_cutout is not None:
+                p = make_valid(p.difference(text_cutout))
+            return _geom_parts(p)
+
+        for poly in bldg_polys:
+            for p in _piece(poly):
+                m = _extrude(p, span, z_base=base_h)
+                if m:
+                    meshes.append(m)
+        for poly in raw_roads:
+            for p in _piece(poly):
+                m = _extrude(p, span, z_base=base_h)
+                if m:
+                    meshes.append(m)
         return meshes
 
     # ── Water piece ────────────────────────────────────────────────────────────
@@ -493,12 +632,15 @@ class STLGenerator:
     def _water_piece(
         self, water_union, urban_union,
         plate_shape, water_start, water_end,
+        text_cutout: Polygon | None = None,
     ) -> list[trimesh.Trimesh]:
         # 0.1 mm inset so water sits flush against the collar inner wall
         inner_plate = plate_shape.buffer(-0.1)
         water = inner_plate if not inner_plate.is_empty else plate_shape
         if not urban_union.is_empty:
             water = make_valid(water.difference(urban_union))
+        if text_cutout is not None:
+            water = make_valid(water.difference(text_cutout))
         water = _simplify_for_extrusion(water)
         thickness = max(water_end - water_start, 0.5)
         meshes = []
@@ -511,19 +653,15 @@ class STLGenerator:
     # ── Land piece (top lid) ──────────────────────────────────────────────────
     # Fits inside the collar (buildings layer handles the frame).
     # Holes for buildings/roads (they protrude through) and water bodies (recessed).
-    # If moat_text is set, the text polygon is carved from the land lid; the
-    # expanded channel shape is returned separately so _build can add it to the
-    # water piece (blue) — creating green letters surrounded by blue water.
-    #
-    # Returns (land_meshes, moat_channel_shape | None)
+    # text_cutout (if given) is carved out last, straight through the lid.
 
     def _land_piece(
         self, urban_union, water_union,
         plate_shape, outer_shape,
         land_start, land_end,
         topology, elev_grid,
-        moat_text: str | None = None,
-    ) -> tuple[list[trimesh.Trimesh], Polygon | None]:
+        text_cutout: Polygon | None = None,
+    ) -> list[trimesh.Trimesh]:
         # 0.1 mm inset — land sits flush against the collar inner wall
         inner_plate = plate_shape.buffer(-0.1)
         lid_shape = inner_plate if not inner_plate.is_empty else plate_shape
@@ -531,18 +669,8 @@ class STLGenerator:
             lid_shape = make_valid(lid_shape.difference(urban_union))
         if not water_union.is_empty:
             lid_shape = make_valid(lid_shape.difference(water_union.intersection(plate_shape)))
-
-        # Moat text: carve the text polygon from the land lid
-        moat_channel_shape: Polygon | None = None
-        if moat_text:
-            bounds = plate_shape.bounds
-            pw = bounds[2] - bounds[0]
-            ph = bounds[3] - bounds[1]
-            text_poly, _ = _make_text_polygon(moat_text, pw, ph)
-            if text_poly and not text_poly.is_empty:
-                lid_shape = make_valid(lid_shape.difference(text_poly))
-                # 1.5 mm margin around text → the water channel that surrounds it
-                moat_channel_shape = text_poly.buffer(1.5)
+        if text_cutout is not None:
+            lid_shape = make_valid(lid_shape.difference(text_cutout))
 
         # Simplify before extrusion — dense urban areas on small plates (e.g. coaster)
         # produce complex polygons with many tight holes that can cause trimesh failures.
@@ -556,13 +684,11 @@ class STLGenerator:
                 m = _extrude(p, thickness, z_base=land_start)
                 if m:
                     meshes.append(m)
-            return meshes, moat_channel_shape
+            return meshes
         else:
             bounds = plate_shape.bounds  # (minx, miny, maxx, maxy)
             pw, ph = bounds[2] - bounds[0], bounds[3] - bounds[1]
-            terrain_meshes = self._terrain_lid(lid_shape, elev_grid, pw, ph,
-                                               land_start, land_end)
-            return terrain_meshes, moat_channel_shape
+            return self._terrain_lid(lid_shape, elev_grid, pw, ph, land_start, land_end)
 
     def _terrain_lid(self, land_shape, elev_grid, plate_w, plate_h, z_bottom, z_top):
         terrain = _build_terrain_mesh(elev_grid, plate_w, plate_h, z_bottom, z_top - z_bottom)

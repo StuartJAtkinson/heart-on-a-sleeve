@@ -17,8 +17,17 @@ export interface PrintScene {
   merch: string; coasterShape: string | null;
   stlBuildings: string | null; stlLand: string | null;
   stlWater: string | null; stlSolid: string | null;
+  stlOne?: string | null;
+  stlFlatUrban?: string | null; stlFlatWater?: string | null; stlFlatLand?: string | null;
   paletteOverrides?: Record<string, string> | null;
 }
+
+// The three downloadable print versions:
+//   one    — single piece: baseplate + 2mm roads/buildings, low profile (its own STL —
+//            NOT the interlocking buildings piece, which needs the full stack height)
+//   flat   — one block, three colour regions at uniform height (slicer splits colours)
+//   layers — the interlocking stack: buildings base + water layer + land lid
+export type PrintVersion = 'one' | 'flat' | 'layers';
 
 const BG = 0x0d0e0f;
 const PRINT_MAT: Record<string, { solid: number; wire: number }> = {
@@ -59,6 +68,7 @@ export class PrintViewer {
   private loopRunning = false;
   private wireframe = false;
   private _scene: PrintScene | null = null;
+  private version: PrintVersion = 'layers';
 
   // Called by the panel's Regenerate button (set by app.ts so it can reuse the API helper).
   onRegen: (() => Promise<void>) | null = null;
@@ -171,9 +181,7 @@ export class PrintViewer {
     barLoop(performance.now());
 
     try {
-      await this._loadParts(s.stlBuildings, s.stlLand, s.stlWater);
-      Status.message('Assembling layers…');
-      await this._runAnim();
+      await this.showVersion(this.version);
       barActive = false;
       Status.set(1); Status.done();
     } catch (e: any) {
@@ -186,9 +194,48 @@ export class PrintViewer {
     this._wireDownloads();
   }
 
-  private async _loadParts(b: string, l: string, w: string): Promise<void> {
+  // Which STL blobs (and which material buckets) each print version previews.
+  private _versionParts(v: PrintVersion): [string | null | undefined, 'buildings' | 'land' | 'water'][] {
+    const s = this._scene!;
+    if (v === 'one')  return [[s.stlOne, 'buildings']];
+    if (v === 'flat') return [[s.stlFlatUrban, 'buildings'], [s.stlFlatLand, 'land'], [s.stlFlatWater, 'water']];
+    return [[s.stlBuildings, 'buildings'], [s.stlLand, 'land'], [s.stlWater, 'water']];
+  }
+
+  // Swap the previewed version in place: clear the layer groups, load that
+  // version's STLs, and (layers only) replay the stack animation.
+  async showVersion(v: PrintVersion): Promise<void> {
+    this.version = v;
+    for (const [id, ver] of [['ver-one-print', 'one'], ['ver-flat-print', 'flat'], ['ver-layers-print', 'layers']]) {
+      document.getElementById(id)?.classList.toggle('active', ver === v);
+    }
+    if (!this._scene || !this.printGroup) return;
+
+    this.printGroup.scale.set(1, 1, 1); this.printGroup.position.set(0, 0, 0);
+    Object.values(this.printLayers).forEach(g => { g.clear(); g.visible = false; g.position.y = 0; });
+    this.baseplateGroup.clear(); this.baseplateGroup.visible = false;
+    this.allMats = [];
+
+    const parts = this._versionParts(v).filter(([url]) => !!url) as [string, 'buildings' | 'land' | 'water'][];
+    const statusEl = this._el('status-print');
+    if (!parts.length) {
+      if (statusEl) statusEl.textContent = 'This version isn\'t in the cache — hit ⟳ Regenerate STL.';
+      return;
+    }
+    if (statusEl) statusEl.textContent = '';
+
+    await this._loadParts(parts);
+    if (v === 'layers') {
+      await this._runAnim();
+    } else {
+      this.baseplateGroup.visible = true;
+      Object.values(this.printLayers).forEach(g => { g.visible = true; });
+    }
+  }
+
+  private async _loadParts(parts: [string, 'buildings' | 'land' | 'water'][]): Promise<void> {
     const loader = new STLLoader();
-    for (const [url, key] of [[b, 'buildings'], [l, 'land'], [w, 'water']] as [string, 'buildings' | 'land' | 'water'][]) {
+    for (const [url, key] of parts) {
       if (!url) continue;
       try {
         const geo: any = await new Promise((res, rej) => loader.load(url, res, undefined, rej));
@@ -264,18 +311,9 @@ export class PrintViewer {
     this.printLayers.land.position.y = this._lndRestLocalY;
   }
 
-  // Re-load the parts (called after a regenerate). Resets group transforms first.
+  // Re-load the parts (called after a regenerate). showVersion resets transforms.
   async reload(): Promise<void> {
-    if (!this._scene) return;
-    this.printGroup.scale.set(1, 1, 1); this.printGroup.position.set(0, 0, 0);
-    Object.values(this.printLayers).forEach(g => { g.clear(); g.visible = false; g.position.y = 0; });
-    this.baseplateGroup.clear(); this.baseplateGroup.visible = false;
-    this.allMats = [];
-    const s = this._scene;
-    if (s.stlBuildings && s.stlLand && s.stlWater) {
-      await this._loadParts(s.stlBuildings, s.stlLand, s.stlWater);
-      await this._runAnim();
-    }
+    await this.showVersion(this.version);
   }
 
   setScene(s: PrintScene): void { this._scene = s; }
@@ -298,6 +336,12 @@ export class PrintViewer {
       rBtn.textContent = this.controls.autoRotate ? '⏸ Pause' : '▶ Auto-rotate';
     });
 
+    for (const [id, v] of [['ver-one-print', 'one'], ['ver-flat-print', 'flat'],
+                           ['ver-layers-print', 'layers']] as [string, PrintVersion][]) {
+      this._freshBtn(id).addEventListener('click', () => { void this.showVersion(v); });
+      document.getElementById(id)?.classList.toggle('active', v === this.version);
+    }
+
     const regen = this._freshBtn('btn-print-regen') as HTMLButtonElement;
     regen.addEventListener('click', async () => {
       if (!this.onRegen) return;
@@ -315,18 +359,21 @@ export class PrintViewer {
     });
   }
 
+  // URLs are read at click time (not wire time) so downloads stay fresh after a regenerate.
   private _wireDownloads(): void {
-    const s = this._scene; if (!s) return;
-    const single = document.getElementById('dl-singlecolour-print') as HTMLAnchorElement | null;
-    if (single && s.stlBuildings) single.href = s.stlBuildings;
-    const multi = this._freshBtn('dl-multicolour-print');
-    multi.addEventListener('click', () => {
-      for (const [url, name] of [[s.stlBuildings, 'buildings.stl'], [s.stlLand, 'land.stl'], [s.stlWater, 'water.stl']] as [string | null, string][]) {
-        if (!url) continue;
-        const a = document.createElement('a'); a.href = url; a.download = name;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      }
-    });
+    const wire = (id: string, files: (s: PrintScene) => [string | null | undefined, string][]) => {
+      this._freshBtn(id).addEventListener('click', () => {
+        const s = this._scene; if (!s) return;
+        for (const [url, name] of files(s)) {
+          if (!url) continue;
+          const a = document.createElement('a'); a.href = url; a.download = name;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        }
+      });
+    };
+    wire('dl-one-print',    s => [[s.stlOne, 'map_1colour.stl']]);
+    wire('dl-flat-print',   s => [[s.stlFlatUrban, 'flat_urban.stl'], [s.stlFlatWater, 'flat_water.stl'], [s.stlFlatLand, 'flat_land.stl']]);
+    wire('dl-layers-print', s => [[s.stlBuildings, 'buildings.stl'], [s.stlWater, 'water.stl'], [s.stlLand, 'land.stl']]);
   }
 
   getSnapshot(size = 150): string | null {

@@ -1,0 +1,10 @@
+- generic [ref=f1e2]:
+  - generic [ref=f1e3]: ❤️
+  - heading "Heart on a Sleeve" [level=1] [ref=f1e4]
+  - paragraph [ref=f1e5]: Turn any place on Earth into a custom product — T-shirts, mugs, coasters, 3D-printed maps and more.
+  - list [ref=f1e6]:
+    - listitem [ref=f1e7]: ◦ Draw any area on a live globe
+    - listitem [ref=f1e8]: ◦ Instantly generate a unique SVG map design
+    - listitem [ref=f1e9]: ◦ Preview in 3D or export for printing
+  - link "Start Creating" [ref=f1e11] [cursor=pointer]:
+    - /url: /index.html
