@@ -2,7 +2,6 @@
 
 ## Open
 
-- [ ] **backend `.venv` built under WSL, unusable from Windows** — `backend/.venv/pyvenv.cfg` `home = /usr/bin`, so its Windows `python.exe` errors (`did not find executable at '/usr/bin\python.exe'`). Windows-side tooling can't use it; had to fall back to system `py -3`. Recreate the venv per-OS or keep it WSL-only. *(found 2026-06-04)*
 - [ ] **TypeScript 6 migration (deferred)** — Dependabot #6 (TS 5.9.3→6.0.3) breaks `tsc`: `TS2882 Cannot find module or type declarations for side-effect import of 'cesium/Build/Cesium/Widgets/widgets.css'` (TS 6 tightened non-code side-effect imports). Needs an ambient `declare module '*.css'` or tsconfig tweak before upgrading. PR closed to keep `main` green; do as a planned migration. *(found 2026-06-01)*
 
 ## Resolved (2026-07-11 session, cont.)
@@ -90,6 +89,7 @@
 - [x] **Water STL only covers water bodies instead of full base disc** — `_water_piece` now uses full `plate_shape` minus urban as the base layer; land lid sits on top in non-water areas *(resolved 2026-05-29)*
 
 ## Resolved
+- [x] **backend `.venv` built under WSL, unusable from Windows** — `backend/.venv/pyvenv.cfg` `home = /usr/bin`, so its Windows `python.exe` errors (`did not find executable at '/usr/bin\python.exe'`). Windows-side tooling can't use it; had to fall back to system `py -3`. Recreate the venv per-OS or keep it WSL-only. *(found 2026-06-04)* — auto-continue *(resolved 2026-07-27)*
 - [x] **Cloud SQL `hoas-db` public IP exposed** — `sslMode` forced to `ENCRYPTED_ONLY` (all connections must be TLS-encrypted; unencrypted access rejected at the protocol level). Public IP cannot be disabled: instance has no private IP or PSC, and the Compute Engine API needed to create a VPC/PSC network is not enabled on the project. The backend connects via Cloud SQL Auth Proxy socket (`/cloudsql/...`), which does not need the public IP. Remaining risk: an attacker with the IP could attempt a TLS handshake, but would be rejected without a valid certificate. To fully resolve: enable Compute Engine API, create a VPC and Private Service Connect network attachment, then `--no-assign-ip`. *(found 2026-06-04)* — auto-continue *(resolved 2026-07-27)*
 
 - [x] **Cloud Run auth/sign-in broken — database tables never created** — `Base.metadata.create_all` added to `lifespan` in router.py; runs on every container startup so Cloud Run bootstraps its own schema *(resolved 2026-05-26)*
