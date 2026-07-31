@@ -250,4 +250,8 @@
   > 
   > Found during dev 2026-06-01.
 
-
+## Needs input (Auto Continue)
+*Left by Auto Continue 2026-07-31 — decide these, then clear CONSIDERATIONS.md.*
+- - The gap between `frontend/cesium/index.html:239-256` (`.design-card`) and `frontend/cesium/public/dashboard.html:38-57` (`.project-card`) should be addressed by deciding whether to consolidate or keep the distinct styles. This decision will impact the visual consistency of the My Designs panel.
+  
+- The backend schema bootstrap in `backend/app/api/router.py` using `Base.metadata.create_all` and an ad-hoc loop needs to be replaced with `alembic upgrade head`. This change is crucial for maintaining a clean deployment process on Cloud Run, ensuring that the live service uses migrations rather than re-creating tables. A human review and deliberate wiring up of this change are required.
