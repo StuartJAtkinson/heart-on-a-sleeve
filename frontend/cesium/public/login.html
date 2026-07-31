@@ -70,7 +70,7 @@
     .field input::placeholder { color: var(--text-faint); }
 
     #error-login, #error-register {
-      font-size: 12px; color: #e07070;
+      font-size: 12px; color: var(--color-danger);
       min-height: 15px; margin-bottom: 10px;
     }
 
@@ -205,7 +205,7 @@
         <label>Email</label>
         <input type="email" id="reset-req-email" placeholder="you@example.com" autocomplete="email">
       </div>
-      <div id="error-reset-req" style="font-size:12px;color:#e07070;min-height:15px;margin-bottom:10px;"></div>
+      <div id="error-reset-req" style="font-size:12px;color:var(--color-danger);min-height:15px;margin-bottom:10px;"></div>
       <button class="btn-primary" id="reset-req-btn">Send reset link</button>
       <div class="switch-row" style="margin-top:12px;">
         Remember your password?
@@ -236,7 +236,7 @@
         <label>Confirm password</label>
         <input type="password" id="reset-password-confirm" placeholder="••••••••" autocomplete="new-password">
       </div>
-      <div id="error-reset-set" style="font-size:12px;color:#e07070;min-height:15px;margin-bottom:10px;"></div>
+      <div id="error-reset-set" style="font-size:12px;color:var(--color-danger);min-height:15px;margin-bottom:10px;"></div>
       <button class="btn-primary" id="reset-set-btn">Save new password</button>
     </div>
 
@@ -407,11 +407,11 @@ async function doResetSet() {
   btn.disabled = true; btn.textContent = 'Saving…'; errorEl.textContent = '';
   try {
     await apiCall('/api/auth/reset-password', { token: resetToken, password });
-    errorEl.style.color = '#4a9a4a';
+    errorEl.style.color = 'var(--color-success)';
     errorEl.textContent = 'Password updated! Redirecting to sign in…';
     setTimeout(() => show('view-login'), 1500);
   } catch (e) {
-    errorEl.style.color = '#e07070';
+    errorEl.style.color = 'var(--color-danger)';
     errorEl.textContent = e.message;
     btn.disabled = false; btn.textContent = 'Save new password';
   }

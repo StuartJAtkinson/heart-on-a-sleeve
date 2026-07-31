@@ -150,8 +150,8 @@
         /* Designs panel — save section */
         #designs-save-section { padding-bottom: 4px; }
         #designs-save-status { font-size: 11px; color: var(--text-mid); min-height: 14px; margin-top: 4px; }
-        #designs-logout { color: #e06060; border-color: var(--border-dim); }
-        #designs-logout:hover { border-color: #e06060; background: rgba(224,96,96,0.08); }
+        #designs-logout { color: var(--color-danger); border-color: var(--border-dim); }
+        #designs-logout:hover { border-color: var(--color-danger); background: rgba(224,96,96,0.08); }
 
         /* Save section — lives at bottom of svg-side panel */
         #svg-save-section { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
@@ -160,8 +160,8 @@
         /* User nav rendered into .user-nav-slot */
         .user-email-display { font-size: 11px; color: var(--text-dim); padding: 4px 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .nav-designs-btn { margin-bottom: 4px; }
-        .nav-logout-btn { color: #e06060 !important; border-color: var(--border-dim) !important; }
-        .nav-logout-btn:hover { border-color: #e06060 !important; background: rgba(224,96,96,0.08) !important; }
+        .nav-logout-btn { color: var(--color-danger) !important; border-color: var(--border-dim) !important; }
+        .nav-logout-btn:hover { border-color: var(--color-danger) !important; background: rgba(224,96,96,0.08) !important; }
 
         /* Save + user nav */
         .save-input {
@@ -257,10 +257,10 @@
         .btn-danger {
             flex: 1; padding: 5px 3px; font-size: 11px;
             background: transparent; border: 1px solid var(--border-dim);
-            color: #e06060; border-radius: var(--radius-btn);
+            color: var(--color-danger); border-radius: var(--radius-btn);
             font-family: inherit; cursor: pointer; transition: all 0.12s;
         }
-        .btn-danger:hover { border-color: #e06060; background: rgba(224,96,96,0.08); }
+        .btn-danger:hover { border-color: var(--color-danger); background: rgba(224,96,96,0.08); }
 
         /* ── Mobile ───────────────────────────────────────────────────────── */
         @media (max-width: 900px) {

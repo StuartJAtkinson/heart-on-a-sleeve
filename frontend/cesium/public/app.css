@@ -34,6 +34,10 @@
   --toggle-dot:    #888899;
   --toggle-on:     #4a9eff;
 
+  /* Semantic status */
+  --color-danger:  #e06060;
+  --color-success: #4a9a4a;
+
   /* Radii / spacing */
   --radius-panel:  10px;
   --radius-btn:    6px;
