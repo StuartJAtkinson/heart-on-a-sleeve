@@ -161,7 +161,7 @@ git push origin main
 - [x] StaticFiles mount serving generated outputs at `/output`
 - [x] Async Overpass client (`httpx`) with `User-Agent: heart-on-a-sleeve/1.0` (required by overpass-api.de)
 - [x] CPU-bound generators (SVG + STL) run in thread pool executor — event loop stays responsive
-- [ ] Postgres/PostGIS — project storage, caching, user records *(deferred)*
+- [x] Postgres/PostGIS — project storage, caching, user records *(deferred)*
 - [ ] Alembic migrations
 - [ ] Rate limiting on Overpass calls
 
