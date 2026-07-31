@@ -10,7 +10,7 @@ import os
 import httpx
 
 from app.core.config import get_settings
-from app.core.database import engine
+from app.core.database import engine, async_session
 from app.models import db_models  # noqa: F401 — registers ORM models with Base.metadata
 from app.models.schemas import (
     BBox,
@@ -106,7 +106,7 @@ app.include_router(auth_router)
 app.include_router(projects_router)
 app.include_router(timing_utils.router)
 
-osm_fetcher = OSMFetcher(settings.overpass_endpoint)
+osm_fetcher = OSMFetcher(settings.overpass_endpoint, session_factory=async_session)
 svg_generator = SVGGenerator(MERCH_SPECS)
 stl_generator = STLGenerator()
 license_tracker = LicenseTracker()

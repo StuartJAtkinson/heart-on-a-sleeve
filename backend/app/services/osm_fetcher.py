@@ -1,8 +1,11 @@
 import math
 import time
 import httpx
-from datetime import datetime
+from datetime import datetime, timedelta
+from sqlalchemy import select, delete
+from sqlalchemy.ext.asyncio import async_sessionmaker
 from ..models.schemas import BBox
+from ..models.db_models import OSMCache
 from ..timing_utils import tlog
 
 
@@ -43,7 +46,7 @@ def _build_query(bb: str, km2: float, timeout: int, force_buildings: bool = Fals
 class OSMFetcher:
     """Fetches OSM data via Overpass API with a single-shot mirror fallback."""
 
-    def __init__(self, overpass_endpoint: str):
+    def __init__(self, overpass_endpoint: str, session_factory: async_sessionmaker | None = None):
         self.endpoint = overpass_endpoint
         # Primary first, then mirror (each tried exactly once — no retry loops)
         self._endpoints = [overpass_endpoint] + (
@@ -51,6 +54,55 @@ class OSMFetcher:
         )
         self._cache: dict[tuple, tuple[dict, float]] = {}
         self._cache_ttl = 300  # 5-minute TTL so colour regens are instant
+        # Optional Postgres-backed second-level cache — persists across restarts
+        # and is shared across horizontally-scaled backend instances, unlike
+        # the in-process dict above. Best-effort: DB errors never break a fetch.
+        self._session_factory = session_factory
+
+    async def _db_cache_get(self, key: tuple) -> dict | None:
+        if self._session_factory is None:
+            return None
+        west, south, east, north, force_buildings = key
+        cutoff = datetime.utcnow() - timedelta(seconds=self._cache_ttl)
+        try:
+            async with self._session_factory() as session:
+                result = await session.execute(
+                    select(OSMCache).where(
+                        OSMCache.bbox_west == west, OSMCache.bbox_south == south,
+                        OSMCache.bbox_east == east, OSMCache.bbox_north == north,
+                        OSMCache.force_buildings == force_buildings,
+                        OSMCache.fetched_at > cutoff,
+                    )
+                )
+                row = result.scalars().first()
+                return row.response if row else None
+        except Exception:
+            return None
+
+    async def _db_cache_put(self, key: tuple, data: dict) -> None:
+        if self._session_factory is None:
+            return
+        west, south, east, north, force_buildings = key
+        now = datetime.utcnow()
+        try:
+            async with self._session_factory() as session:
+                await session.execute(
+                    delete(OSMCache).where(
+                        OSMCache.bbox_west == west, OSMCache.bbox_south == south,
+                        OSMCache.bbox_east == east, OSMCache.bbox_north == north,
+                        OSMCache.force_buildings == force_buildings,
+                    )
+                )
+                # Opportunistic eviction so the table doesn't grow unbounded —
+                # ponytail: no cron/background job, just piggybacks on writes.
+                await session.execute(delete(OSMCache).where(OSMCache.fetched_at < now - timedelta(hours=1)))
+                session.add(OSMCache(
+                    bbox_west=west, bbox_south=south, bbox_east=east, bbox_north=north,
+                    force_buildings=force_buildings, response=data, fetched_at=now,
+                ))
+                await session.commit()
+        except Exception:
+            pass
 
     async def fetch_area(self, bbox: BBox, timeout: int = 60, force_buildings: bool = False) -> dict:
         key = (round(bbox.west, 5), round(bbox.south, 5),
@@ -60,6 +112,12 @@ class OSMFetcher:
             data = cached[0]
             data['_cached'] = True
             return data
+
+        db_data = await self._db_cache_get(key)
+        if db_data is not None:
+            self._cache[key] = (db_data, time.time())
+            db_data['_cached'] = True
+            return db_data
 
         bb = f"{bbox.south},{bbox.west},{bbox.north},{bbox.east}"
         cos_lat = math.cos((bbox.south + bbox.north) / 2 * math.pi / 180)
@@ -96,6 +154,7 @@ class OSMFetcher:
                 tlog("overpass_fetch", elapsed_ms,
                      f"km2={km2} elements={len(data.get('elements', []))} ep={endpoint[-20:]}")
                 self._cache[key] = (data, time.time())
+                await self._db_cache_put(key, data)
                 return data
 
             except httpx.TimeoutException:
