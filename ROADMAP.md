@@ -162,7 +162,7 @@ git push origin main
 - [x] Async Overpass client (`httpx`) with `User-Agent: heart-on-a-sleeve/1.0` (required by overpass-api.de)
 - [x] CPU-bound generators (SVG + STL) run in thread pool executor — event loop stays responsive
 - [x] Postgres/PostGIS — project storage, caching, user records *(deferred)*
-- [ ] Alembic migrations
+- [x] Alembic migrations
 - [ ] Rate limiting on Overpass calls
 
 ---
