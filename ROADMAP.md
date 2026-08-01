@@ -163,7 +163,7 @@ git push origin main
 - [x] CPU-bound generators (SVG + STL) run in thread pool executor — event loop stays responsive
 - [x] Postgres/PostGIS — project storage, caching, user records *(deferred)*
 - [x] Alembic migrations
-- [ ] Rate limiting on Overpass calls
+- [x] Rate limiting on Overpass calls
 
 ---
 
