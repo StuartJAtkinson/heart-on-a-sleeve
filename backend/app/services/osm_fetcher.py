@@ -1,3 +1,4 @@
+import asyncio
 import math
 import time
 import httpx
@@ -18,6 +19,29 @@ class OverpassError(Exception):
 
 # Mirror tried once if the primary endpoint returns a transient error
 _MIRROR = "https://overpass.kumi.systems/api/interpreter"
+
+
+class _RateLimiter:
+    """Caps concurrent + per-second outbound Overpass calls (their fair-use policy asks
+    for at most 2 concurrent connections, spaced out rather than fired in a burst)."""
+
+    def __init__(self, max_concurrent: int = 2, min_interval: float = 1.0):
+        self._sem = asyncio.Semaphore(max_concurrent)
+        self._min_interval = min_interval
+        self._lock = asyncio.Lock()
+        self._last_call = 0.0
+
+    async def __aenter__(self):
+        await self._sem.acquire()
+        async with self._lock:
+            wait = self._last_call + self._min_interval - time.monotonic()
+            if wait > 0:
+                await asyncio.sleep(wait)
+            self._last_call = time.monotonic()
+        return self
+
+    async def __aexit__(self, *exc_info):
+        self._sem.release()
 
 
 def _build_query(bb: str, km2: float, timeout: int, force_buildings: bool = False) -> str:
@@ -54,6 +78,7 @@ class OSMFetcher:
         )
         self._cache: dict[tuple, tuple[dict, float]] = {}
         self._cache_ttl = 300  # 5-minute TTL so colour regens are instant
+        self._rate_limiter = _RateLimiter()
         # Optional Postgres-backed second-level cache — persists across restarts
         # and is shared across horizontally-scaled backend instances, unlike
         # the in-process dict above. Best-effort: DB errors never break a fetch.
@@ -129,11 +154,12 @@ class OSMFetcher:
         for endpoint in self._endpoints:
             try:
                 t0 = time.perf_counter()
-                async with httpx.AsyncClient(
-                    timeout=httpx.Timeout(connect=10, read=timeout + 5, write=10, pool=5),
-                    headers=headers,
-                ) as client:
-                    response = await client.post(endpoint, data={"data": query})
+                async with self._rate_limiter:
+                    async with httpx.AsyncClient(
+                        timeout=httpx.Timeout(connect=10, read=timeout + 5, write=10, pool=5),
+                        headers=headers,
+                    ) as client:
+                        response = await client.post(endpoint, data={"data": query})
 
                 elapsed_ms = (time.perf_counter() - t0) * 1000
 
