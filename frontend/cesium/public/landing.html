@@ -109,7 +109,7 @@
     } else {
       row.innerHTML =
         '<span>' + (email || '') + '</span>' +
-        '<a href="#" class="link" id="logout-lnk">Sign out</a>';
+        '<a href="#" class="link" id="logout-lnk">Logout</a>';
       document.getElementById('logout-lnk').addEventListener('click', function (e) {
         e.preventDefault();
         localStorage.removeItem('hoas_token');
