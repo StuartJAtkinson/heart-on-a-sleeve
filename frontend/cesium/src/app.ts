@@ -1882,7 +1882,7 @@ async function renderDesigns(): Promise<void> {
           <div class="design-meta">${emoji} ${MERCH_LABEL[p.merch_type] || p.merch_type}<br>${date}</div>
           <div class="design-actions">
             <button class="btn design-load-btn" data-id="${p.id}">↩ Load</button>
-            <button class="btn-danger design-del-btn"  data-id="${p.id}">✕</button>
+            <button class="btn-danger design-del-btn" title="Delete design" aria-label="Delete design" data-id="${p.id}">✕</button>
           </div>
         </div>`;
     }).join('')}</div>`;
