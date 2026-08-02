@@ -32,31 +32,8 @@
 
     #user-email { font-size: 11px; color: var(--text-dim); margin-bottom: 14px; word-break: break-all; }
 
-    /* Project grid */
-    #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
-
-    .project-card {
-      background: var(--bg-panel); border: 1px solid var(--border-panel);
-      border-radius: var(--radius-panel); padding: 14px;
-      display: flex; flex-direction: column; gap: 8px;
-    }
-    .project-card:hover { border-color: var(--border-item); }
-
-    .card-thumb {
-      width: 100%; aspect-ratio: 1; background: var(--bg-item);
-      border-radius: 6px; overflow: hidden; display: flex;
-      align-items: center; justify-content: center;
-    }
-    .card-thumb img { width: 100%; height: 100%; object-fit: contain; }
-    .card-thumb .no-thumb { font-size: 32px; }
-
-    .card-name { font-size: 13px; color: var(--text-high); font-weight: 500; }
-    .card-meta { font-size: 11px; color: var(--text-dim); line-height: 1.6; }
-
-    .card-actions { display: flex; gap: 6px; margin-top: 2px; }
-    .card-actions .btn { flex: 1; padding: 6px 4px; font-size: 12px; }
     .btn-danger {
-      flex: 1; padding: 6px 4px; font-size: 12px;
+      flex: 1; padding: 5px 3px; font-size: 11px;
       background: transparent; border: 1px solid var(--border-dim);
       color: var(--color-danger); border-radius: var(--radius-btn);
       font-family: inherit; cursor: pointer; transition: all 0.12s;
@@ -105,7 +82,7 @@
 
   <div id="main">
     <div id="loading-msg">Loading designs…</div>
-    <div id="grid" style="display:none"></div>
+    <div id="grid" class="designs-grid" style="display:none"></div>
     <div id="empty" style="display:none">No saved designs yet.<br><a href="/" style="color:var(--accent)">Create your first one →</a></div>
   </div>
 </div>
@@ -171,14 +148,14 @@ async function loadProjects() {
       ? `<img src="${p.thumbnail_data_url}" alt="design thumbnail" loading="lazy">`
       : `<span class="no-thumb">${emoji}</span>`;
     return `
-      <div class="project-card" data-id="${p.id}">
-        <div class="card-thumb">${thumb}</div>
-        <div class="card-name">${escHtml(displayName(p))}</div>
-        <div class="card-meta">
+      <div class="design-card" data-id="${p.id}">
+        <div class="design-thumb">${thumb}</div>
+        <div class="design-name">${escHtml(displayName(p))}</div>
+        <div class="design-meta">
           ${emoji} ${MERCH_LABEL[p.merch_type] || p.merch_type}<br>
           ${date}
         </div>
-        <div class="card-actions">
+        <div class="design-actions">
           <a class="btn" href="/index.html?design=${p.id}">Open</a>
           <button class="btn-danger" onclick="deleteProject(${p.id}, this)">Delete</button>
         </div>
@@ -194,8 +171,8 @@ async function deleteProject(id, btn) {
     headers: { 'Authorization': 'Bearer ' + token },
   });
   if (resp.ok || resp.status === 204) {
-    btn.closest('.project-card').remove();
-    if (!document.querySelector('.project-card')) {
+    btn.closest('.design-card').remove();
+    if (!document.querySelector('.design-card')) {
       document.getElementById('grid').style.display = 'none';
       document.getElementById('empty').style.display = 'block';
     }

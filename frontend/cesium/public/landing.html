@@ -106,6 +106,7 @@
       localStorage.removeItem('hoas_token');
       localStorage.removeItem('hoas_refresh');
       localStorage.removeItem('hoas_email');
+      row.innerHTML = '<a href="/login.html" class="link">Sign in</a>';
     } else {
       row.innerHTML =
         '<span>' + (email || '') + '</span>' +
@@ -115,9 +116,11 @@
         localStorage.removeItem('hoas_token');
         localStorage.removeItem('hoas_refresh');
         localStorage.removeItem('hoas_email');
-        row.innerHTML = '';
+        row.innerHTML = '<a href="/login.html" class="link">Sign in</a>';
       });
     }
+  } else {
+    row.innerHTML = '<a href="/login.html" class="link">Sign in</a>';
   }
 })();
 </script>

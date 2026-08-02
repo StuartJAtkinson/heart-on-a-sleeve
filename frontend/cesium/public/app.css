@@ -386,6 +386,27 @@ body {
 .save-name-preview::before { content: "Saves as: "; color: var(--text-dim); font-weight: 400; }
 .save-name-preview:empty { display: none; }
 
+/* ── Saved-design cards (shared by in-SPA My Designs + dashboard.html) ───────── */
+.designs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.design-card {
+  background: var(--bg-item); border: 1px solid var(--border-dim);
+  border-radius: 8px; padding: 10px;
+  display: flex; flex-direction: column; gap: 6px;
+  transition: border-color 0.12s;
+}
+.design-card:hover { border-color: var(--border-item); }
+.design-thumb {
+  width: 100%; aspect-ratio: 1; background: var(--bg-page);
+  border-radius: 5px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.design-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.design-thumb .no-thumb { font-size: 28px; }
+.design-name { font-size: 12px; color: var(--text-high); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.design-meta { font-size: 10px; color: var(--text-dim); line-height: 1.5; }
+.design-actions { display: flex; gap: 5px; margin-top: 2px; }
+.design-actions .btn { flex: 1; padding: 5px 3px; font-size: 11px; margin-top: 0; }
+
 /* ── Spinner ────────────────────────────────────────────────────────────────── */
 .spinner {
   display: none;
