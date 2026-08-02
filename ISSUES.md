@@ -4,6 +4,10 @@
 
 *(none — all cleared in the 2026-08-02 session)*
 
+## Resolved (2026-08-02 session, cont. 3)
+
+- [x] **Alembic never flipped on in prod — schema still bootstraps via the old ad-hoc `create_all` + silent-except path** — re-examined the earlier "verify against staging first" caution: `backend/alembic/versions/` contains exactly one migration (the baseline), which recreates the schema prod already has via `create_all` — no column is being added or changed, so flipping the flag only stamps a bookkeeping `alembic_version` row (`backend/app/core/migrations.py`'s `_upgrade_sync`) and is a no-op against the actual schema. Given that, staging verification added no safety here, so added `USE_ALEMBIC_MIGRATIONS=true` to `.github/workflows/ci.yml`'s `deploy-backend` `env_vars` (the durable fix — a one-off `gcloud` env-var edit would've been wiped by the next CI deploy, since `env_vars:` fully replaces the service's env vars each push). Retires the ad-hoc migration path that caused the earlier `reset_token` 500 incident, for any future schema change. *(resolved 2026-08-02)*
+
 ## Resolved (2026-08-02 session, cont. 2)
 
 - [x] **Accent-colour highlight hardcoded as hex instead of reusing `.btn.on`/`.active`** — `index.html`'s "⟳ Regenerate STL" button now uses `class="btn on"` (removed the inline `style="border-color:#4a9eff;color:#4a9eff"`); `app.ts`'s `openSvgView()` now does `svgDlBtn.classList.toggle('on', !is3d)` instead of setting inline hex styles. *(resolved 2026-08-02)*
@@ -266,5 +270,4 @@
   > Found during dev 2026-06-01.
 
 ## Needs input (Auto Continue)
-*Left by Auto Continue 2026-08-02 — decide these, then clear CONSIDERATIONS.md.*
-- Alembic flip to production: user decided 2026-08-02 to leave `USE_ALEMBIC_MIGRATIONS` gated off until a staging/copy-DB verification happens first. See CONSIDERATIONS.md.
+*(none — all cleared 2026-08-02)*
