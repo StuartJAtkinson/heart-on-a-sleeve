@@ -571,7 +571,7 @@ function updateBboxDisplay(): void {
     `N:&nbsp;${b.north.toFixed(4)} &nbsp; S:&nbsp;${b.south.toFixed(4)}<br>` +
     `E:&nbsp;${b.east.toFixed(4)} &nbsp; W:&nbsp;${b.west.toFixed(4)}` +
     (_live.rot !== 0 ? ` &nbsp; ↻&nbsp;${(_live.rot * 180 / Math.PI).toFixed(1)}°` : '') +
-    `<br><span style="color:${overLimit ? '#ff6060' : '#888'}">${Math.round(km2 * 10) / 10}&nbsp;km²${overLimit ? ' — max 100km²' : ''}</span>`;
+    `<br><span style="color:${overLimit ? 'var(--color-danger)' : 'var(--text-dim)'}">${Math.round(km2 * 10) / 10}&nbsp;km²${overLimit ? ' — max 100km²' : ''}</span>`;
   const genBtn = document.getElementById('generate-btn') as HTMLButtonElement;
   if (overLimit) genBtn.disabled = true;
   else if (confirmed) genBtn.disabled = false;
@@ -1254,8 +1254,7 @@ async function openSvgView(url: string, text: string, stlResult: any) {
   svgDlBtn.href = url;
   const is3d = ['coaster','placemat','3d_print'].includes(merchType);
   svg3dBtn.style.display = is3d ? 'block' : 'none';
-  if (!is3d) { svgDlBtn.style.borderColor = '#4a9eff'; svgDlBtn.style.color = '#4a9eff'; }
-  else        { svgDlBtn.style.borderColor = ''; svgDlBtn.style.color = ''; }
+  svgDlBtn.classList.toggle('on', !is3d);
 
   // Show save section in sidebar: immediately for 2D, or 3D when STL already present
   const saveSection = document.getElementById('svg-save-section')!;
@@ -1435,9 +1434,13 @@ document.getElementById('print-save-btn')!.addEventListener('click', async () =>
     });
     if (resp.status === 401) { localStorage.removeItem('hoas_token'); location.href = '/login.html'; return; }
     if (!resp.ok) throw new Error(`Server ${resp.status}`);
+    statusEl.style.color = 'var(--color-success)';
     statusEl.textContent = 'Saved!';
-    setTimeout(() => { statusEl.textContent = ''; }, 2500);
-  } catch (e: any) { statusEl.textContent = `Error: ${e.message}`; }
+    setTimeout(() => { statusEl.textContent = ''; statusEl.style.color = ''; }, 2500);
+  } catch (e: any) {
+    statusEl.style.color = 'var(--color-danger)';
+    statusEl.textContent = `Error: ${e.message}`;
+  }
 });
 
 // Pan/zoom on SVG viewport
@@ -1749,9 +1752,11 @@ async function saveProject(): Promise<void> {
       return;
     }
     if (!resp.ok) throw new Error(`Server ${resp.status}`);
+    statusEl.style.color = 'var(--color-success)';
     statusEl.textContent = 'Saved!';
-    setTimeout(() => { statusEl.textContent = ''; }, 2500);
+    setTimeout(() => { statusEl.textContent = ''; statusEl.style.color = ''; }, 2500);
   } catch (e: any) {
+    statusEl.style.color = 'var(--color-danger)';
     statusEl.textContent = `Error: ${e.message}`;
   }
 }
@@ -1881,7 +1886,7 @@ async function renderDesigns(): Promise<void> {
           <div class="design-name">${esc(displayName(p, projects))}</div>
           <div class="design-meta">${emoji} ${MERCH_LABEL[p.merch_type] || p.merch_type}<br>${date}</div>
           <div class="design-actions">
-            <button class="btn design-load-btn" data-id="${p.id}">↩ Load</button>
+            <button class="btn design-load-btn" data-id="${p.id}">↩ Open</button>
             <button class="btn-danger design-del-btn" title="Delete design" aria-label="Delete design" data-id="${p.id}">✕</button>
           </div>
         </div>`;
@@ -1906,7 +1911,7 @@ async function renderDesigns(): Promise<void> {
           btn.closest('.design-card')?.remove();
           if (!contentEl.querySelector('.design-card'))
             contentEl.innerHTML = '<div class="designs-empty">No saved designs yet.</div>';
-        } else { btn.disabled = false; }
+        } else { btn.disabled = false; alert('Delete failed.'); }
       });
     });
 

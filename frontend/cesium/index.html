@@ -151,17 +151,15 @@
         #designs-save-section { padding-bottom: 4px; }
         #designs-save-status { font-size: 11px; color: var(--text-mid); min-height: 14px; margin-top: 4px; }
         #designs-logout { color: var(--color-danger); border-color: var(--border-dim); }
-        #designs-logout:hover { border-color: var(--color-danger); background: rgba(224,96,96,0.08); }
+        #designs-logout:hover { border-color: var(--color-danger); background: var(--color-danger-soft); }
 
         /* Save section — lives at bottom of svg-side panel */
         #svg-save-section { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
-        #svg-save-status { font-size: 11px; color: var(--text-mid); min-height: 14px; }
-
         /* User nav rendered into .user-nav-slot */
         .user-email-display { font-size: 11px; color: var(--text-dim); padding: 4px 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .nav-designs-btn { margin-bottom: 4px; }
         .nav-logout-btn { color: var(--color-danger) !important; border-color: var(--border-dim) !important; }
-        .nav-logout-btn:hover { border-color: var(--color-danger) !important; background: rgba(224,96,96,0.08) !important; }
+        .nav-logout-btn:hover { border-color: var(--color-danger) !important; background: var(--color-danger-soft) !important; }
 
         /* Save + user nav */
         .save-input {
@@ -237,7 +235,7 @@
             color: var(--color-danger); border-radius: var(--radius-btn);
             font-family: inherit; cursor: pointer; transition: all 0.12s;
         }
-        .btn-danger:hover { border-color: var(--color-danger); background: rgba(224,96,96,0.08); }
+        .btn-danger:hover { border-color: var(--color-danger); background: var(--color-danger-soft); }
 
         /* ── Mobile ───────────────────────────────────────────────────────── */
         @media (max-width: 900px) {
@@ -299,6 +297,8 @@
 
 <div id="panel" class="panel sidebar">
     <div class="sheet-handle" id="panel-handle"></div>
+    <!-- Panel order: deliberate exception — this is the app's entry panel, so title/search/merch/generate
+         come first and user-nav sits at the BOTTOM (after Status), instead of TOP like the other 3 panels. -->
     <h2>Heart on a Sleeve</h2>
 
     <div id="search-wrapper">
@@ -391,7 +391,7 @@
     <div id="status-print" style="font-size:11px;color:var(--text-mid);min-height:14px;margin-bottom:6px;"></div>
     <button class="btn" id="btn-print-wire">⬡ Wireframe</button>
     <button class="btn" id="btn-print-rotate">▶ Auto-rotate</button>
-    <button class="btn" id="btn-print-regen" style="border-color:#4a9eff;color:#4a9eff">⟳ Regenerate STL</button>
+    <button class="btn on" id="btn-print-regen">⟳ Regenerate STL</button>
     <div id="regen-status-print" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:14px;"></div>
     <div class="divider"></div>
     <div class="dl-label">Print versions — click to preview, ↓ to download:</div>
@@ -464,7 +464,7 @@
 <div id="designs-panel" class="panel">
   <div class="designs-hdr">
     <span>My Designs</span>
-    <button id="designs-close">×</button>
+    <button id="designs-close" title="Close" aria-label="Close">×</button>
   </div>
   <div class="designs-hdr-email" id="designs-email"></div>
   <div class="divider"></div>

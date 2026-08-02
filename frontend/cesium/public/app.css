@@ -35,8 +35,9 @@
   --toggle-on:     #4a9eff;
 
   /* Semantic status */
-  --color-danger:  #e06060;
-  --color-success: #4a9a4a;
+  --color-danger:      #e06060;
+  --color-danger-soft: rgba(224, 96, 96, 0.08);
+  --color-success:     #4a9a4a;
 
   /* Radii / spacing */
   --radius-panel:  10px;
@@ -58,7 +59,7 @@ body {
    Every view shares one layout: a fixed-width sidebar + a flexible stage
    (map / SVG / 3D / print), with the status bar reserved as a strip below. */
 .view    { display: flex; }
-.sidebar { width: 280px; flex-shrink: 0; height: calc(100vh - 22px); overflow-y: auto; padding: 16px 14px 20px; }
+.sidebar { width: 280px; flex-shrink: 0; height: calc(100vh - 22px); overflow-y: auto; }
 .stage   { flex: 1; position: relative; overflow: hidden; height: calc(100vh - 22px); }
 
 /* ── Glass panel ────────────────────────────────────────────────────────────── */

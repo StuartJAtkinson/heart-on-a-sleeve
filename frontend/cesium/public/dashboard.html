@@ -20,10 +20,7 @@
 
     #app { display: flex; width: 100%; height: 100vh; }
 
-    #side-panel {
-      width: 240px; flex-shrink: 0; height: 100vh;
-      overflow-y: auto; padding: 18px 14px 24px; box-sizing: border-box;
-    }
+    #side-panel { height: 100vh; }
 
     #main {
       flex: 1; overflow-y: auto; padding: 24px 28px;
@@ -38,7 +35,7 @@
       color: var(--color-danger); border-radius: var(--radius-btn);
       font-family: inherit; cursor: pointer; transition: all 0.12s;
     }
-    .btn-danger:hover { border-color: var(--color-danger); background: rgba(224,96,96,0.08); }
+    .btn-danger:hover { border-color: var(--color-danger); background: var(--color-danger-soft); }
 
     #empty { color: var(--text-dim); font-size: 14px; padding: 40px 0; text-align: center; }
     #loading-msg { color: var(--text-dim); font-size: 13px; padding: 20px 0; }
@@ -72,7 +69,7 @@
 </head>
 <body>
 <div id="app">
-  <div id="side-panel" class="panel">
+  <div id="side-panel" class="panel sidebar">
     <h2>My Designs</h2>
     <div id="user-email"></div>
     <a class="btn" href="/">← New design</a>

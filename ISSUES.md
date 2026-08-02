@@ -2,20 +2,23 @@
 
 ## Open
 
-- [ ] **Accent-colour highlight hardcoded as hex instead of reusing the existing `.btn.on`/`.active` treatment** — `index.html`'s "⟳ Regenerate STL" button (line 417: `style="border-color:#4a9eff;color:#4a9eff"`) and `frontend/cesium/src/app.ts`'s `openSvgView()` (~line 1257: `svgDlBtn.style.borderColor = '#4a9eff'; svgDlBtn.style.color = '#4a9eff';`) both hand-hardcode the accent hex to give a button the "highlighted" look, duplicating `--accent` (`#4a9eff` in `app.css`) instead of toggling the `.btn.on`/`.active` class or reading `var(--accent)`, which app.css already defines for exactly this purpose. If `--accent` is ever retuned, these two spots go stale silently.
-- [ ] **`dashboard.html` reimplements the shared `.sidebar` panel with different spacing instead of reusing it** — `frontend/cesium/public/dashboard.html`'s `#side-panel` (lines 23-26: `width: 240px; padding: 18px 14px 24px;`) duplicates the role of `app.css`'s `.sidebar` class (`width: 280px; padding: 16px 14px 20px;`, used by every panel in `index.html`) but with different width/padding values, so the standalone dashboard's sidebar reads as subtly narrower/differently-padded than the rest of the app. Reuse `.sidebar` (or match its values) for visual consistency.
+*(none — all cleared in the 2026-08-02 session)*
 
-- [ ] **`.sidebar`'s own padding is dead code — `.panel` (declared later, same specificity) always wins** — `frontend/cesium/public/app.css`: `.sidebar { padding: 16px 14px 20px; }` is declared before `.panel { padding: var(--panel-pad); }` (16px uniform). Every sidebar element in the app uses `class="panel sidebar"` (e.g. `frontend/cesium/index.html:323,379,403,441`), and per CSS cascade order `.panel`'s later declaration wins regardless of class-attribute order — so the intended asymmetric 16/14/20 padding never actually renders; it's always uniform 16px. Either delete the dead `.sidebar` padding declaration (if uniform padding is correct) or reorder so `.sidebar`'s padding takes precedence (if the asymmetric padding was intended).
-- [ ] **Main map panel doesn't follow the app's own documented "user nav" placement standard** — the 3D, print, and SVG side panels (`frontend/cesium/index.html:381,404,442`) each carry the comment `<!-- Panel order: User nav TOP → Save → Options → Back BOTTOM -->` and place `.user-nav-slot` right after the sheet handle. The main map panel (`frontend/cesium/index.html:323-370`) has no such comment and places `.user-nav-slot` last (line 370), after the Generate button and status line. Move it to match the other three panels, or add a comment explaining why the map panel is the deliberate exception.
-- [ ] **"Open a saved design" has two different labels/affordances between the two My Designs views** — `public/dashboard.html:178`: plain text link `Open`. `src/app.ts:1881`: icon+text button `↩ Load`. Same action, different verb and control style — pick one.
-- [ ] **`'relief'` is a dead string in the 3D-merch-type check** — `frontend/cesium/src/viewer3d.ts:148,602`: `['coaster','placemat','relief','3d_print'].includes(merch)`. The only real value for that slot is `'3d_print'` (`MERCH_LABELS['3d_print'] = 'Relief'` in `src/app.ts:96` maps the id to the display name "Relief" — the id itself is never `'relief'`). Confirmed elsewhere in the same file (`src/app.ts:1255,1790`) the equivalent check correctly omits `'relief'`. Remove the dead entry from both `viewer3d.ts` checks.
-- [ ] **SPA "My Designs" delete gives no feedback when the delete fails** — `frontend/cesium/src/app.ts:1906` (`.design-del-btn` click handler): on a failed DELETE the button just runs `btn.disabled = false` with no message, so the user has no indication anything went wrong. `public/dashboard.html:200`'s equivalent handler shows `alert('Delete failed.')` for the identical failure. Give the SPA modal the same (or an inline) failure feedback.
-- [ ] **Selection-area warning colour is off-token in both its states** — `frontend/cesium/src/app.ts:574`: `` `<span style="color:${overLimit ? '#ff6060' : '#888'}">` `` hardcodes `#ff6060` for the over-limit warning, which doesn't match the `--color-danger` token (`#e06060` in `app.css`) used for every other error state, and `#888` for the normal state matches none of the defined text tokens (`--text-muted:#8888aa`, `--text-dim:#666680`). Swap both for `var(--color-danger)` and an existing text token.
-- [ ] **Save-status "Saved!"/"Error: …" messages render with no colour, unlike `login.html`'s equivalent states** — `frontend/cesium/src/app.ts:1438-1440` (SVG save) and `:1752-1755` (3D/print save) set `statusEl.textContent` to `'Saved!'` or `` `Error: ${e.message}` `` with no styling, so both just inherit the neutral `--text-mid` colour already on the container (`index.html:387,411,449`). `public/login.html:410,414` colours the identical success/failure states with `var(--color-success)`/`var(--color-danger)` (added in the danger/success-token cleanup) — apply the same tokens in app.ts's save handlers.
-- [ ] **`login.html`'s background glow hand-types a different opacity than the `--accent-soft` token it's duplicating** — `public/login.html:21`: `rgba(74,158,255,0.07)`. `app.css:29` already defines the same colour as `--accent-soft: rgba(74, 158, 255, 0.08)`. Replace the literal with `var(--accent-soft)` (or a dedicated glow token if 0.07 was deliberate) so the two can't drift further.
-- [ ] **Repeated hand-typed danger-tint instead of a token, unlike the accent equivalent** — `frontend/cesium/index.html:154,164,263` and `public/dashboard.html:64` all hardcode `background: rgba(224,96,96,0.08)` for the danger-hover state (matching `--color-danger:#e06060`), but no `--color-danger-soft` token exists even though the identical pattern for the accent colour already has one (`--accent-soft: rgba(74, 158, 255, 0.08)` in `app.css:29`). Add `--color-danger-soft` to `app.css` and point all 4 call sites at it.
-- [ ] **Duplicate CSS rule for the same id, dead declaration left behind** — `frontend/cesium/index.html:158` and `:175` both declare `#svg-save-status { font-size:11px; color:var(--text-mid); min-height:14px; ... }` (the second adds `margin-top:4px`). Remove the first (line 158), which is fully superseded by the second.
-- [ ] **"My Designs" close button has no accessible label, unlike its sibling icon-only buttons** — `frontend/cesium/index.html:490`: `<button id="designs-close">×</button>` carries no `title`/`aria-label`, while the STL download buttons in the same file (`index.html:423,427,431`) all carry a `title="Download …"`. Add `title="Close"` (or `aria-label`) to match.
+## Resolved (2026-08-02 session, cont. 2)
+
+- [x] **Accent-colour highlight hardcoded as hex instead of reusing `.btn.on`/`.active`** — `index.html`'s "⟳ Regenerate STL" button now uses `class="btn on"` (removed the inline `style="border-color:#4a9eff;color:#4a9eff"`); `app.ts`'s `openSvgView()` now does `svgDlBtn.classList.toggle('on', !is3d)` instead of setting inline hex styles. *(resolved 2026-08-02)*
+- [x] **`dashboard.html` reimplemented `.sidebar` with different spacing** — `#side-panel` now carries `class="panel sidebar"` and its local CSS is reduced to just the `height: 100vh` override (dashboard has no status bar, unlike the SPA's `calc(100vh - 22px)`); width/padding/overflow now come from the shared `.sidebar` class. *(resolved 2026-08-02)*
+- [x] **`.sidebar`'s own padding was dead code** — removed the always-overridden `padding: 16px 14px 20px` from `.sidebar` in `app.css` (no visual change — `.panel`'s uniform `var(--panel-pad)` was already what rendered everywhere). *(resolved 2026-08-02)*
+- [x] **Main map panel's user-nav placement vs the documented standard** — judged a deliberate exception rather than reordered: the map panel is the app's entry screen and its `<h2>Heart on a Sleeve</h2>` acts as branding, so nav-above-title would read oddly. Added an explanatory comment matching the other 3 panels' "Panel order" comment convention instead of moving the slot. *(resolved 2026-08-02)*
+- [x] **"Open a saved design" had two different verbs** — dashboard.html already said "Open"; changed the SPA's `.design-load-btn` from "↩ Load" to "↩ Open" to match (kept the icon+button control style since that's the established convention for this panel's other actions). *(resolved 2026-08-02)*
+- [x] **Dead `'relief'` string in 3D-merch-type checks** — removed from both `viewer3d.ts:148,602` `is3d` checks; only `'3d_print'` is a real merch-type id. *(resolved 2026-08-02)*
+- [x] **SPA delete gave no failure feedback** — `.design-del-btn` handler now calls `alert('Delete failed.')` on a failed DELETE, matching `dashboard.html`'s equivalent. *(resolved 2026-08-02)*
+- [x] **Selection-area warning colour was off-token** — `app.ts:574` now uses `var(--color-danger)` for the over-limit state and `var(--text-dim)` for the normal state instead of hardcoded `#ff6060`/`#888`. *(resolved 2026-08-02)*
+- [x] **Save-status messages had no colour** — both SVG-save and 3D/print-save handlers in `app.ts` now set `statusEl.style.color` to `var(--color-success)` on success / `var(--color-danger)` on error (cleared back to '' when the status text clears), matching `login.html`'s equivalent states. *(resolved 2026-08-02)*
+- [x] **`login.html` glow hardcoded a different opacity than `--accent-soft`** — replaced the literal `rgba(74,158,255,0.07)` with `var(--accent-soft)`. *(resolved 2026-08-02)*
+- [x] **No `--color-danger-soft` token for the repeated danger-tint hover** — added `--color-danger-soft: rgba(224, 96, 96, 0.08)` to `app.css` and pointed all 4 call sites (`index.html` ×3, `dashboard.html` ×1) at it. *(resolved 2026-08-02)*
+- [x] **Duplicate `#svg-save-status` CSS rule** — removed the first, superseded declaration in `index.html`; the one with `margin-top:4px` remains. *(resolved 2026-08-02)*
+- [x] **"My Designs" close button had no accessible label** — added `title="Close"` and `aria-label="Close"` to `#designs-close`. *(resolved 2026-08-02)*
 
 ## Resolved (2026-08-02 session, cont.)
 
@@ -148,11 +151,11 @@
 - [x] **3D params explained + expandable** — each STL parameter has a description line; panel split into two collapsible `<details>` groups *(resolved 2026-05-23)*
 
 
-## Migrated from GitHub Issues (closed 2026-06-30)
+## Migrated from GitHub Issues (closed 2026-06-30) — all resolved
 
-> Issue tracking consolidated into this file during the portfolio alignment sweep. The 9 GitHub issues below were closed on GitHub and preserved here as the single source of truth. Tick off as resolved.
+> Issue tracking consolidated into this file during the portfolio alignment sweep. The 9 GitHub issues below were closed on GitHub and preserved here as the single source of truth. Verified 2026-08-02: all 9 are already implemented (see the dated Resolved sections above — #11/#13/#16 fixed 2026-06-01, #12 in the CORS/CD hardening, #14/#15/#17/#18 fixed 2026-06-01, #19 fixed 2026-06-13 as "Coaster shape not enforced across all 3D"). Checkboxes below were simply never ticked; ticking now, no code changes made.
 
-- [ ] **#11 [security] Refresh token passed as URL query parameter**
+- [x] **#11 [security] Refresh token passed as URL query parameter**
   > `backend/app/api/auth.py:85`
   > 
   > ```python
@@ -174,7 +177,7 @@
   > 
   > Found during project review 2026-06-01.
 
-- [ ] **#12 [security] CORS wildcard + allow_credentials in Cloud Run deploy**
+- [x] **#12 [security] CORS wildcard + allow_credentials in Cloud Run deploy**
   > `.github/workflows/ci.yml:236`
   > 
   > ```yaml
@@ -187,7 +190,7 @@
   > 
   > Found during project review 2026-06-01.
 
-- [ ] **#13 [security] No guard on default SECRET_KEY**
+- [x] **#13 [security] No guard on default SECRET_KEY**
   > `backend/app/core/config.py:29`
   > 
   > ```python
@@ -200,7 +203,7 @@
   > 
   > Found during project review 2026-06-01.
 
-- [ ] **#14 [cleanup] Delete orphaned duplicate FastAPI app endpoints.py**
+- [x] **#14 [cleanup] Delete orphaned duplicate FastAPI app endpoints.py**
   > `backend/app/api/endpoints.py` (131 lines) is an orphaned second `FastAPI()` app. Nothing imports it — `backend/main.py`, both compose files, and CI all run `app.api.router:app`.
   > 
   > It has drifted from the live `router.py`: references STL args `height_mm`/`base_thickness_mm` that no longer exist on the real handler, uses `/output/svg` paths, and has its own divergent `lifespan`. It's a maintenance trap and muddies the security surface.
@@ -209,7 +212,7 @@
   > 
   > Found during project review 2026-06-01.
 
-- [ ] **#15 [hygiene] SQLite db and data/ not gitignored**
+- [x] **#15 [hygiene] SQLite db and data/ not gitignored**
   > `.gitignore` ignores `backend/data/` but not:
   > 
   > - `backend/heart_on_a_sleeve.db` (SQLite dev db — untracked, **not** ignored)
@@ -221,7 +224,7 @@
   > 
   > Found during project review 2026-06-01.
 
-- [ ] **#16 [bug] Output filename collisions at second granularity**
+- [x] **#16 [bug] Output filename collisions at second granularity**
   > `backend/app/api/router.py` — `generate_svg` and `generate_stl` build output filenames with second-granularity timestamps:
   > 
   > ```python
@@ -234,7 +237,7 @@
   > 
   > Found during project review 2026-06-01.
 
-- [ ] **#17 [cleanup] Remove dead _current_bbox global and unused schemas**
+- [x] **#17 [cleanup] Remove dead _current_bbox global and unused schemas**
   > - `_current_bbox` in `backend/app/api/router.py:110` is written on every generate call but never read; a module-level mutable is also concurrency-unsafe.
   > - `MerchType`, `DesignProjectCreate`, and `DesignProjectResponse` in `backend/app/models/schemas.py` appear unused (responses are built ad-hoc as dicts).
   > 
@@ -242,7 +245,7 @@
   > 
   > Found during project review 2026-06-01.
 
-- [ ] **#18 [hygiene] Startup logs at WARNING + silent migration except**
+- [x] **#18 [hygiene] Startup logs at WARNING + silent migration except**
   > `backend/app/api/router.py` `lifespan`:
   > 
   > - Routine startup is logged at `log.warning(...)` (DB driver, metadata tables, create_all result) — reads like leftover debugging; demote to `info`/`debug`.
@@ -250,7 +253,7 @@
   > 
   > Found during project review 2026-06-01.
 
-- [ ] **#19 [bug] Coaster shape not enforced in 3D map ground + print baseplate**
+- [x] **#19 [bug] Coaster shape not enforced in 3D map ground + print baseplate**
   > The selected coaster shape (square / circle / hexagon) is applied to the SVG clip path and the STL plate outline (`stl_generator._plate_shapes`), but **not** to two 3D surfaces:
   > 
   > - **3D map ground** — `frontend/cesium/src/viewer3d.ts` uses a `PlaneGeometry` plus 4 axis-aligned clipping planes, so the ground is always rectangular.

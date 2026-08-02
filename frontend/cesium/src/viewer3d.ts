@@ -145,7 +145,7 @@ export class Viewer3D {
     const stlW = s.stlWater     ?? null;
     const stlS = s.stlSolid     ?? null;
     const hasParts = !!(stlB && stlL && stlW);
-    const is3d = ['coaster','placemat','relief','3d_print'].includes(merch);
+    const is3d = ['coaster','placemat','3d_print'].includes(merch);
     this._currentScene = s;
 
     // Reset state
@@ -599,7 +599,7 @@ export class Viewer3D {
   enablePrintButton(stlB: string, stlL: string, stlW: string, stlS: string | null): void {
     const s = this._currentScene;
     if (!s) return;
-    const is3d = ['coaster','placemat','relief','3d_print'].includes(s.merch);
+    const is3d = ['coaster','placemat','3d_print'].includes(s.merch);
     if (!is3d) return;
     const btn = this._freshBtn('btn-3d-mode');
     this._show('btn-3d-mode', true);
