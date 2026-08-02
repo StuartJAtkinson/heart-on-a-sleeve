@@ -115,6 +115,10 @@ const MERCH_EMOJI = {
   tshirt: '👕', mug: '☕', tote: '👜',
   coaster: '⬜', placemat: '🟫', '3d_print': '⛰',
 };
+const MERCH_LABEL = {
+  tshirt: 'T-Shirt', mug: 'Mug', tote: 'Tote Bag',
+  coaster: 'Coaster', placemat: 'Placemat', '3d_print': 'Relief',
+};
 
 const token = localStorage.getItem('hoas_token');
 if (!token) {
@@ -171,7 +175,7 @@ async function loadProjects() {
         <div class="card-thumb">${thumb}</div>
         <div class="card-name">${escHtml(displayName(p))}</div>
         <div class="card-meta">
-          ${emoji} ${p.merch_type}<br>
+          ${emoji} ${MERCH_LABEL[p.merch_type] || p.merch_type}<br>
           ${date}
         </div>
         <div class="card-actions">
