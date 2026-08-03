@@ -272,4 +272,4 @@
 
 ## Needs input (Auto Continue)
 *Left by Auto Continue 2026-08-03 — decide these, then clear CONSIDERATIONS.md.*
-- PRs #42 and #41 have failing checks: "Lint backend (ruff)" for PR #42 and both "Lint backend (ruff)" and "Smoke tests (pytest)" for PR #41, against their respective head commits. PR #40 has a failing "Smoke tests (pytest)" check for its head commit. These issues require human review or investigation before merging the respective PRs.
+- PR #42: "Lint backend (ruff)" check is failing; PRs #41, #40, and #39 have failing checks ("Smoke tests (pytest)", "Type-check frontend (tsc)"). Needs human review before merging.
