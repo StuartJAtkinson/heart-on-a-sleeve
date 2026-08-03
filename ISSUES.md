@@ -271,4 +271,5 @@
   > Found during dev 2026-06-01.
 
 ## Needs input (Auto Continue)
-*(none — all cleared 2026-08-02)*
+*Left by Auto Continue 2026-08-03 — decide these, then clear CONSIDERATIONS.md.*
+- The "Lint backend (ruff)" check is FAILING against the current head commit (1de6901a747295a4aad537286e5cf458f2d2e040) for PR #42 ("build(deps): bump actions/setup-node from 6 to 7"). The "Lint backend (ruff)" and "Smoke tests (pytest)" checks are FAILING against the current head commit (2012ff755a8a8d1a0d7ac49b20d89ade6fa3a002) for PR #41 ("build(deps): bump actions/setup-python from 6 to 7"). Both issues need human review before merging.
