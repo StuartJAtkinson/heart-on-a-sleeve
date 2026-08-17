@@ -11,7 +11,12 @@
     "strict": false,
     "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    // TS 6+ tightened side-effect import resolution (TS2882). Pre-7 the
+    // ambient `declare module '*.css'` in src/globals.d.ts was enough; TS 7
+    // also wants the importer to declare noUncheckedSideEffectImports=false.
+    // Safe to leave on for older TS — the option is a no-op there.
+    "noUncheckedSideEffectImports": false
   },
   "include": ["src"]
 }

@@ -60,21 +60,13 @@ gcloud sql users create heart_user \
   --password="$DB_PASS"
 ```
 
-### Enable PostGIS and run schema
+### Schema
 
-```bash
-gcloud sql connect hoas-db --user=postgres --database=heart_on_a_sleeve
-```
-
-In the psql prompt:
-
-```sql
-CREATE EXTENSION IF NOT EXISTS postgis;
-CREATE EXTENSION IF NOT EXISTS btree_gist;
-GRANT ALL PRIVILEGES ON DATABASE heart_on_a_sleeve TO heart_user;
-```
-
-Then paste the contents of `db/init/02-schema.sql` and `\q` to exit.
+Schema is managed by `backend/alembic/versions/` and runs on the app's first startup
+when `USE_ALEMBIC_MIGRATIONS=true` is set (already configured in `.github/workflows/ci.yml`).
+No manual SQL setup required — alembic stamps `alembic_version` and creates the three
+ORM tables (`users`, `design_projects`, `osm_cache`). Previously enabled postgis/btree_gist
+extensions are not used by app code and have been retired.
 
 ### Cloud SQL connection string for DATABASE_URL
 

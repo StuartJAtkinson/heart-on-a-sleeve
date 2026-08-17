@@ -55,7 +55,7 @@ heart-on-a-sleeve/
 │
 ├── docker-compose.yml              Dev: database + backend (+ frontend via --profile full)
 ├── docker-compose.prod.yml         Prod-like: all services with env-file credentials
-├── db/init/                        PostgreSQL init SQL (runs on first container start)
+├── backend/alembic/                Schema source of truth (runs via app lifespan)
 └── docs/
     ├── DEPLOY.md                   One-time GCP / Cloud Run setup guide
     └── ROADMAP.md                  Phase plan and build status

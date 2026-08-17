@@ -1,6 +1,9 @@
 """
 Smoke tests — hit every real endpoint, assert expected HTTP codes and shapes.
-No mocks: if Overpass is down these will fail, which is the point.
+
+Overpass is replayed from a recorded fixture (backend/tests/fixtures/overpass_bath.json,
+gitignored, cached by CI). The first live call captures the file; subsequent runs replay
+offline. Set OVERPASS_FIXTURE_PATH to opt in; omit it to hit real Overpass.
 
 Run with:
     docker compose exec backend python -m pytest tests/smoke.py -v

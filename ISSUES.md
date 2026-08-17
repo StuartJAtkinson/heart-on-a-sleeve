@@ -2,7 +2,12 @@
 
 ## Open
 
-*(none — all cleared in the 2026-08-02 session)*
+## Resolved (2026-08-17 session)
+
+- [x] **TypeScript 7 breaks side-effect CSS import resolution — blocks dependabot PR #39** — added `"noUncheckedSideEffectImports": false` to `frontend/cesium/tsconfig.json`. TS 6+ tightened side-effect import resolution; the existing `declare module '*.css'` in `src/globals.d.ts` was no longer sufficient under TS 7. The new tsconfig option (no-op on TS ≤ 5.6) reverts the strictness. Reopen if dependabot PR #39 still fails `Type-check frontend (tsc)` after rebase. *(resolved 2026-08-17)*
+
+- [x] **CI smoke tests depend on the live Overpass API — flaky failures block unrelated PRs** — `OSMFetcher.fetch_area` now reads `OVERPASS_FIXTURE_PATH` (gitignored `backend/tests/fixtures/overpass_bath.json`); if set and present, returns it instead of HTTP. First live call writes the file (cold cache → real fetch → save → next CI replays). CI caches the fixture via `actions/cache` (key `overpass-fixture-bath-v1`) so warm runs are fully offline — fixes the flake that blocked dependabot #40/#41/#43 (and future bumps). Compose sets the env var on the backend service; smoke.py docstring updated; `*.json` under `backend/tests/fixtures/` added to `.gitignore`. *(resolved 2026-08-17)*
+- [x] **Vite dev proxy targets :8080 (the `full`-profile nginx), not the backend on :8001** — `frontend/cesium/vite.config.ts:9-10` proxy target changed from `http://localhost:8080` → `http://localhost:8001`. Plain `docker compose up -d` + `npm run dev` now works end-to-end. `startStop.md` simplified to `docker compose up -d` (no `--profile full`). `--profile full` left in place since you have a different implementation in mind; remove the profile + its nginx service when that lands.
 
 ## Resolved (2026-08-02 session, cont. 4)
 

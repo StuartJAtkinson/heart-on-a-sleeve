@@ -1,6 +1,9 @@
 import asyncio
+import json
 import math
+import os
 import time
+from pathlib import Path
 import httpx
 from datetime import datetime, timedelta
 from sqlalchemy import select, delete
@@ -130,6 +133,17 @@ class OSMFetcher:
             pass
 
     async def fetch_area(self, bbox: BBox, timeout: int = 60, force_buildings: bool = False) -> dict:
+        # Fixture replay — if OVERPASS_FIXTURE_PATH points at an existing JSON file,
+        # return it as the Overpass response without any HTTP call. Used by smoke tests
+        # to run offline once a real call has been recorded (CI caches the file).
+        fixture_path = os.environ.get("OVERPASS_FIXTURE_PATH")
+        if fixture_path:
+            fp = Path(fixture_path)
+            if fp.exists():
+                data = json.loads(fp.read_text())
+                data['_cached'] = True
+                return data
+
         key = (round(bbox.west, 5), round(bbox.south, 5),
                round(bbox.east, 5), round(bbox.north, 5), force_buildings)
         cached = self._cache.get(key)
@@ -181,6 +195,15 @@ class OSMFetcher:
                      f"km2={km2} elements={len(data.get('elements', []))} ep={endpoint[-20:]}")
                 self._cache[key] = (data, time.time())
                 await self._db_cache_put(key, data)
+                # ponytail: fixture replay — if OVERPASS_FIXTURE_PATH is set and the file is
+                # missing, capture the first live response so subsequent runs replay offline.
+                # CI caches the file via actions/cache (warm = offline, cold = one capture).
+                fixture_path = os.environ.get("OVERPASS_FIXTURE_PATH")
+                if fixture_path:
+                    fp = Path(fixture_path)
+                    if not fp.exists():
+                        fp.parent.mkdir(parents=True, exist_ok=True)
+                        fp.write_text(json.dumps(data))
                 return data
 
             except httpx.TimeoutException:

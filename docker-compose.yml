@@ -10,8 +10,8 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./db/init/01-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
-      - ./db/init/02-schema.sql:/docker-entrypoint-initdb.d/02-schema.sql:ro
+    # Schema comes from backend/alembic via the app's lifespan (USE_ALEMBIC_MIGRATIONS=true in CI,
+    # create_all fallback in dev). No init SQL — db/init/ was archived.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U heart_user -d heart_on_a_sleeve"]
       interval: 10s
@@ -33,6 +33,9 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://heart_user:heart_password@database:5432/heart_on_a_sleeve
       OVERPASS_ENDPOINT: https://overpass-api.de/api/interpreter
+      # Smoke-test fixture replay (gitignored). First live call writes the file,
+      # subsequent runs replay it offline. CI caches via actions/cache.
+      OVERPASS_FIXTURE_PATH: /app/tests/fixtures/overpass_bath.json
       CORS_ORIGINS: http://localhost:5174,http://localhost:3000,http://localhost:8080
       DATA_DIR: /data
       PORT: "8000"

@@ -19,6 +19,9 @@ backend/data/
 # Local databases
 *.db
 
+# Recorded Overpass responses (CI caches via actions/cache, dev captures on first run)
+backend/tests/fixtures/*.json
+
 # OS
 .DS_Store
 Thumbs.db

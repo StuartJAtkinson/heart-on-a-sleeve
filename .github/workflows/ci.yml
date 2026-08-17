@@ -67,10 +67,20 @@ jobs:
       - run: pip install -r backend/requirements.txt
       - run: pip install httpx
         # httpx is listed but force-install to get the test client extras
+      # Cache the recorded Overpass fixture between runs. First run captures
+      # from live Overpass (one real call, writes the file); subsequent runs
+      # replay offline — fixes the CI flake that blocks dependabot PRs.
+      - name: Restore Overpass fixture
+        uses: actions/cache@v5
+        with:
+          path: backend/tests/fixtures/overpass_bath.json
+          key: overpass-fixture-bath-v1
       - name: Start backend server for smoke tests
         run: |
           cd backend
-          python -m uvicorn app.api.router:app --host 127.0.0.1 --port 8000 &
+          mkdir -p tests/fixtures
+          OVERPASS_FIXTURE_PATH=$PWD/tests/fixtures/overpass_bath.json \
+            python -m uvicorn app.api.router:app --host 127.0.0.1 --port 8000 &
           BACKEND_PID=$!
           echo "Backend PID: $BACKEND_PID"
           # Wait for it to be ready
@@ -78,9 +88,16 @@ jobs:
             curl -s http://127.0.0.1:8000/health && break
             sleep 1
           done
-          # Run tests with DB disabled (tests hit real Overpass, not DB)
+          # Run tests. If the fixture cache was cold, the first live Overpass
+          # call inside the test will write the file and the next CI run replays it.
           TEST_TARGET=http://127.0.0.1:8000 python -m pytest tests/smoke.py -v --tb=short
           kill $BACKEND_PID 2>/dev/null || true
+      - name: Save Overpass fixture (post-run)
+        if: always()
+        uses: actions/cache/save@v5
+        with:
+          path: backend/tests/fixtures/overpass_bath.json
+          key: overpass-fixture-bath-v1
 
   # ── Build validation ──────────────────────────────────────────────────────────
 
