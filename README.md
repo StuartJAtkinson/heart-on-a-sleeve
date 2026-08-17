@@ -34,7 +34,7 @@ heart-on-a-sleeve/
 │   │   │   └── schemas.py          Pydantic request/response models
 │   │   └── services/
 │   │       ├── osm_fetcher.py      Async Overpass API client
-│   │       ├── svg_generator.py    OSM → SVG (cosLat projection, 3 styles)
+│   │       ├── svg_generator.py    OSM → SVG (pyproj EPSG:27700 for GB, 3 styles)
 │   │       ├── stl_generator.py    OSM → 3 interlocking STL pieces
 │   │       └── license_tracker.py  ODbL attribution
 │   ├── Dockerfile
@@ -276,7 +276,7 @@ Shared components: `.panel`, `.btn`, `.btn-primary`, `.divider`, `.section-label
 | Backend API | FastAPI 0.136 + Uvicorn (async, CPU tasks in thread pool) |
 | OSM data | Overpass API (overpass-api.de) via httpx — User-Agent required |
 | Elevation | OpenTopoData SRTM90m (topology mode only) |
-| SVG generation | svgwrite — cosLat projection, clipPath edge clipping |
+| SVG generation | svgwrite — pyproj EPSG:27700 (British National Grid) for GB, cosLat fallback elsewhere, clipPath edge clipping |
 | STL generation | trimesh + shapely + mapbox-earcut |
 | Licence | ODbL — attribution embedded in all SVG outputs |
 
