@@ -183,7 +183,7 @@ git push origin main
 - [x] **cosLat projection** — east-west features scale correctly (no ~1.7× stretch at UK latitudes)
 - [x] **Edge clipping** — `<clipPath>` cuts roads/buildings at the canvas boundary
 - [x] Bbox passed from request (not derived from node spread)
-- [ ] Proper coordinate projection (pyproj EPSG:27700 for UK)
+- [x] Proper coordinate projection (pyproj EPSG:27700 for UK)
 - [ ] Bleed margins
 - [ ] Mug wrap perspective
 - [ ] SVG validation
