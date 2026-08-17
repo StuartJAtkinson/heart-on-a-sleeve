@@ -1,6 +1,15 @@
 import math
+from pyproj import Transformer
 import svgwrite
 from io import BytesIO, StringIO
+
+
+# Great Britain envelope (WGS84 lon/lat) — inside it, EPSG:27700 (British National Grid)
+# is the accurate projection. Outside it, BNG distorts heavily, so we fall back to a
+# local cosine-of-latitude plate carrée. Slightly wider than the true BNG valid area
+# so coastal bboxes still use the accurate path.
+_BNG_ENVELOPE = (-8.0, 49.0, 2.0, 62.0)  # (west, south, east, north) in WGS84 degrees
+_bng_transformer = Transformer.from_crs(4326, 27700, always_xy=True)
 
 
 def _hex_svg_points(w: float, h: float, inset: float = 0.01) -> list[tuple[float, float]]:
@@ -149,6 +158,19 @@ class SVGGenerator:
         self._bbox: tuple[float, float, float, float] = (-0.13, 51.50, -0.11, 51.52)
         self._svg_w: int = 3000
         self._svg_h: int = 4000
+        # Projection state, refreshed by _setup_projection() at the top of generate().
+        # _use_bng=True: project via EPSG:27700 (accurate for GB). The bbox corners
+        # are pre-projected so per-point work is a linear map from projected X/Y.
+        # _use_bng=False: local cosine-of-latitude plate carrée (fallback outside GB).
+        self._use_bng: bool = False
+        self._bbox_origin_e: float = 0.0  # bbox SW corner in projected metres (BNG easting, or 0.0)
+        self._bbox_origin_n: float = 0.0  # bbox SW corner in projected metres (BNG northing, or 0.0)
+        self._bbox_w_m: float = 1.0       # bbox width in projected metres
+        self._bbox_h_m: float = 1.0       # bbox height in projected metres
+        self._west: float = 0.0           # bbox SW longitudes (WGS84), used by cosLat fallback
+        self._south: float = 0.0          # bbox SW latitude (WGS84), used by cosLat fallback
+        self._m_per_deg_lon: float = 1.0  # metres per degree longitude (cosLat-corrected)
+        self._m_per_deg_lat: float = 1.0  # metres per degree latitude
 
     # ── Public ────────────────────────────────────────────────────────────────
 
@@ -171,6 +193,7 @@ class SVGGenerator:
         self._svg_w = spec['width_px']
         self._svg_h = spec['height_px']
         self._bbox  = bbox or self._bbox_from_nodes()
+        self._setup_projection()
 
         palette = dict(STYLES.get(style, STYLES['osm_default']))
         if palette_overrides:
@@ -238,22 +261,56 @@ class SVGGenerator:
 
     # ── Projection ────────────────────────────────────────────────────────────
 
-    def _project(self, lon: float, lat: float) -> tuple[float, float]:
-        """Project WGS84 lon/lat to SVG pixels with cosine-of-latitude correction.
+    def _setup_projection(self) -> None:
+        """Pick the projection and pre-compute bbox geometry for fast per-point lookup.
 
-        Without this, east-west features appear ~1/cos(lat) times too wide
-        relative to north-south features (e.g. ~1.7× stretch at latitude 54°).
+        Inside the GB envelope, uses EPSG:27700 (British National Grid) via pyproj —
+        the accurate projection for Great Britain. Outside, falls back to the local
+        cosine-of-latitude plate carrée (cosLat) since BNG becomes meaningless.
+        Either way, per-point work is a linear map from projected metres to SVG pixels.
         """
         west, south, east, north = self._bbox
-        mid_lat = (south + north) / 2
-        cos_lat = math.cos(math.radians(mid_lat))
-        # Convert everything to metric offsets from SW corner
-        x_m = (lon - west) * cos_lat * 111_320
-        y_m = (lat - south) * 111_320
-        bbox_w_m = (east - west) * cos_lat * 111_320
-        bbox_h_m = (north - south) * 111_320
-        x = x_m / bbox_w_m * self._svg_w
-        y = (1.0 - y_m / bbox_h_m) * self._svg_h
+        env_w, env_s, env_e, env_n = _BNG_ENVELOPE
+        self._use_bng = (west >= env_w and east <= env_e
+                         and south >= env_s and north <= env_n)
+        self._west = west
+        self._south = south
+
+        if self._use_bng:
+            e_w, n_s = _bng_transformer.transform(west, south)
+            e_e, n_n = _bng_transformer.transform(east, north)
+            self._bbox_origin_e = e_w
+            self._bbox_origin_n = n_s
+            self._bbox_w_m = e_e - e_w
+            self._bbox_h_m = n_n - n_s
+            self._m_per_deg_lon = 0.0  # unused in BNG branch
+            self._m_per_deg_lat = 0.0
+        else:
+            mid_lat = (south + north) / 2
+            self._m_per_deg_lon = math.cos(math.radians(mid_lat)) * 111_320
+            self._m_per_deg_lat = 111_320
+            self._bbox_origin_e = 0.0
+            self._bbox_origin_n = 0.0
+            self._bbox_w_m = (east - west) * self._m_per_deg_lon
+            self._bbox_h_m = (north - south) * self._m_per_deg_lat
+
+    def _project(self, lon: float, lat: float) -> tuple[float, float]:
+        """Project WGS84 lon/lat to SVG pixels.
+
+        Inside the GB envelope: EPSG:27700 (British National Grid) — metrically
+        accurate. Outside: cosine-of-latitude correction. Per-point work is a
+        linear map from projected metres to SVG pixels.
+        """
+        if self._use_bng:
+            east_m, north_m = _bng_transformer.transform(lon, lat)
+            x_m = east_m - self._bbox_origin_e
+            y_m = north_m - self._bbox_origin_n
+        else:
+            x_m = (lon - self._west) * self._m_per_deg_lon
+            y_m = (lat - self._south) * self._m_per_deg_lat
+        x = x_m / self._bbox_w_m * self._svg_w
+        # SVG Y is inverted (origin top-left), so flip the northing axis.
+        y = (1.0 - y_m / self._bbox_h_m) * self._svg_h
         return x, y
 
     def _way_points(self, way: dict) -> list[tuple[float, float]]:
