@@ -287,3 +287,8 @@ Shared components: `.panel`, `.btn`, `.btn-primary`, `.divider`, `.section-label
 OpenStreetMap data © OpenStreetMap contributors, licensed under [ODbL](https://opendatacommons.org/licenses/odbl/). Attribution is required in all generated outputs and is embedded automatically.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the full build plan and phase status.
+
+## MCP
+
+[MCP.md](MCP.md) — the MCP position for this repo: the server it should have,
+or why it should not have one.
