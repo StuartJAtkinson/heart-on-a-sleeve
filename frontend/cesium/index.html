@@ -170,7 +170,16 @@
         }
         .save-input:focus { border-color: var(--accent); }
         .save-input::placeholder { color: var(--text-dim); }
-        #svg-save-status { font-size: 11px; color: var(--text-mid); min-height: 14px; margin-top: 4px; }
+        /* Panel status/stat lines. These were inline on each element, repeating
+           the same declarations four different ways; margin is the only thing
+           that genuinely differs, so it stays per-id. */
+        #svg-save-status,
+        #stl-save-status,
+        #print-save-status { font-size: 11px; color: var(--text-mid); min-height: 14px; margin-top: 4px; }
+        #status-3d          { font-size: 11px; color: var(--text-mid); min-height: 14px; margin-bottom: 4px; }
+        #status-print       { font-size: 11px; color: var(--text-mid); min-height: 14px; margin-bottom: 6px; }
+        #stats-3d           { font-size: 11px; color: var(--text-dim); min-height: 12px; margin-bottom: 8px; }
+        #regen-status-print { font-size: 10px; color: var(--text-dim); min-height: 14px; margin-top: 4px; }
         #svg-save-pending-hint { font-size: 11px; color: var(--text-dim); padding: 8px 0 4px; }
         .user-nav-slot { display: flex; flex-direction: column; gap: 4px; }
 
@@ -180,7 +189,6 @@
             flex-direction: row; display: none;
             background: var(--bg-page);
         }
-#loading-3d { display: none; flex-direction: column; gap: 6px; padding: 8px 0; }
 
         /* ── Inline 3D-print viewer (STL assembly) ── */
         #viewer-print-view {
@@ -188,7 +196,6 @@
             flex-direction: row; display: none;
             background: var(--bg-page);
         }
-        #loading-print { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; }
 
         /* ── My Designs floating panel ── */
         #designs-backdrop {
@@ -361,11 +368,11 @@
     <div class="save-section">
       <div class="save-name-preview" id="stl-save-name-preview"></div>
       <button class="btn" id="stl-save-btn">💾 Save Design</button>
-      <div id="stl-save-status" style="font-size:11px;color:var(--text-mid);min-height:14px;margin-top:4px;"></div>
+      <div id="stl-save-status"></div>
     </div>
     <div class="divider"></div>
-    <div id="status-3d" style="font-size:11px;color:var(--text-mid);min-height:14px;margin-bottom:4px;"></div>
-    <div id="stats-3d" style="font-size:11px;color:var(--text-dim);min-height:12px;margin-bottom:8px;"></div>
+    <div id="status-3d"></div>
+    <div id="stats-3d"></div>
     <button class="btn" id="btn-3d-mode" style="display:none"></button>
     <button class="btn" id="btn-3d-wire">⬡ Wireframe</button>
     <button class="btn" id="btn-3d-rotate">▶ Auto-rotate</button>
@@ -385,14 +392,14 @@
     <div class="save-section">
       <div class="save-name-preview" id="print-save-name-preview"></div>
       <button class="btn" id="print-save-btn">💾 Save Design</button>
-      <div id="print-save-status" style="font-size:11px;color:var(--text-mid);min-height:14px;margin-top:4px;"></div>
+      <div id="print-save-status"></div>
     </div>
     <div class="divider"></div>
-    <div id="status-print" style="font-size:11px;color:var(--text-mid);min-height:14px;margin-bottom:6px;"></div>
+    <div id="status-print"></div>
     <button class="btn" id="btn-print-wire">⬡ Wireframe</button>
     <button class="btn" id="btn-print-rotate">▶ Auto-rotate</button>
     <button class="btn on" id="btn-print-regen">⟳ Regenerate STL</button>
-    <div id="regen-status-print" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:14px;"></div>
+    <div id="regen-status-print"></div>
     <div class="divider"></div>
     <div class="dl-label">Print versions — click to preview, ↓ to download:</div>
     <div class="print-ver-row">
