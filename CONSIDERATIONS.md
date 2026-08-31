@@ -1,0 +1,1 @@
+- PR #46 "build(deps-dev): bump vite from 8.2.1 to 8.2.2 in /frontend/cesium" — check `Lint backend (ruff)` is FAILING against the current head commit (25bc63e). Not merged; needs a human to inspect the lint failure (run: https://github.com/StuartJAtkinson/map-merch/actions/runs/32747823070/job/97497438573).
