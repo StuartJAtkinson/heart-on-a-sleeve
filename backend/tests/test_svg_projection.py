@@ -179,3 +179,44 @@ def test_generate_end_to_end_with_bng(tmp_path):
     assert data.startswith(b"<?xml") or data.startswith(b"<svg"), \
         f"expected SVG output, got {data[:50]!r}"
     assert b"<path" in data, "expected a road path to be rendered"
+
+
+def test_bleed_shrinks_visible_bbox_inside_canvas():
+    """With bleed_px>0 (bleed_mm converted via DPI, see generate()), the user's
+    bbox corners should NOT land on the canvas edges — they sit inside by
+    `bleed_px` so the trim cut stays on map, not on the user's selection border.
+
+    Confirms the bleed feature on the fallback cosLat branch (outside GB).
+    BNG branch shares the same math; one assertion is enough.
+    """
+    gen = SVGGenerator(merch_specs={"test": {"width_px": 1000, "height_px": 800}})
+    gen._bbox = BBOX_JP
+    gen._svg_w = 1000
+    gen._svg_h = 800
+    gen._bleed_mm = 3.0
+    gen._bleed_px = 3.0 / 25.4 * 300  # DPI-derived, ~35 px
+    gen._setup_projection()
+    w, s, e, n = BBOX_JP
+    # SW corner inset from canvas corner by bleed_px (>0, <svg_h).
+    x_sw, y_sw = gen._project(w, s)
+    assert x_sw > 1.0, f"SW corner x={x_sw:.2f} should be > 1 px (bleed inset)"
+    assert y_sw < gen._svg_h - 1.0, f"SW corner y={y_sw:.2f} should leave 1+ px under svg_h"
+    # NE corner inset on both axes.
+    x_ne, y_ne = gen._project(e, n)
+    assert x_ne < gen._svg_w - 1.0, f"NE corner x={x_ne:.2f} should leave 1+ px under svg_w"
+    assert y_ne > 1.0, f"NE corner y={y_ne:.2f} should be > 1 px"
+
+
+def test_no_bleed_corners_on_canvas_edges():
+    """Sanity check: with bleed_px=0 (default), bbox corners land exactly on the
+    canvas edges, matching the pre-bleed behaviour. Guards against bleed leaking
+    in via defaults."""
+    gen = _make_generator(svg_w=1000, svg_h=800)
+    gen._bleed_mm = 0.0
+    gen._bleed_px = 0.0
+    _setup(gen, BBOX_JP)
+    w, s, e, n = BBOX_JP
+    x_sw, _ = gen._project(w, s)
+    x_ne, _ = gen._project(e, n)
+    assert x_sw == pytest.approx(0.0, abs=1e-6)
+    assert x_ne == pytest.approx(gen._svg_w, abs=1e-6)

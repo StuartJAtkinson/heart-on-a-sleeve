@@ -170,8 +170,29 @@ async def get_license_info(bbox: BBox):
 @app.post("/api/generate/svg")
 async def generate_svg(req: SVGGenerationRequest):
     _guard_bbox(req.bbox)
+    merch_spec = MERCH_SPECS.get(req.merch_type, {})
+    bleed_mm = req.bleed_mm if req.bleed_mm is not None else merch_spec.get('bleed_mm', 0.0)
+    # Expand the OSM fetch by the bleed (in degrees) so the rendered canvas
+    # is fully covered map content — no transparent gap on the trim edge.
+    # bleed_mm is a physical print measurement, so it converts to pixels via
+    # the merch spec's DPI, then to degrees via the bbox's own geographic
+    # scale (degrees per canvas pixel) — the same scale svg_generator uses.
+    # bbox guard applies to the visible bbox, so a generous bleed still keeps
+    # the visible area within the 110 km² limit.
+    if bleed_mm > 0 and merch_spec.get('width_px') and merch_spec.get('height_px'):
+        bleed_px = bleed_mm / 25.4 * merch_spec.get('dpi', 300)
+        d_lon = bleed_px * (req.bbox.east - req.bbox.west) / merch_spec['width_px']
+        d_lat = bleed_px * (req.bbox.north - req.bbox.south) / merch_spec['height_px']
+        fetch_bbox = BBox(
+            west=max(-180.0, req.bbox.west - d_lon),
+            south=max(-90.0, req.bbox.south - d_lat),
+            east=min(180.0, req.bbox.east + d_lon),
+            north=min(90.0, req.bbox.north + d_lat),
+        )
+    else:
+        fetch_bbox = req.bbox
     try:
-        osm_data = await osm_fetcher.fetch_area(req.bbox)
+        osm_data = await osm_fetcher.fetch_area(fetch_bbox)
     except OverpassError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
@@ -190,6 +211,7 @@ async def generate_svg(req: SVGGenerationRequest):
             bbox=bbox_tuple,
             coaster_shape=req.coaster_shape,
             palette_overrides=req.palette_overrides or None,
+            bleed_mm=req.bleed_mm,
         ))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"SVG generation failed: {e}")

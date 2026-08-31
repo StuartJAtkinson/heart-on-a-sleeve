@@ -186,6 +186,7 @@ class SVGGenerator:
         bbox: tuple[float, float, float, float] | None = None,
         coaster_shape: str = 'square',
         palette_overrides: dict | None = None,
+        bleed_mm: float | None = None,
     ) -> BytesIO:
         self._parse_elements(osm_data.get('elements', []))
 
@@ -193,6 +194,15 @@ class SVGGenerator:
         self._svg_w = spec['width_px']
         self._svg_h = spec['height_px']
         self._bbox  = bbox or self._bbox_from_nodes()
+        # Bleed (mm per side). None → spec default; the user's bbox sits centred
+        # inside the canvas with bleed_mm of map on every edge so a trim never
+        # leaves a white halo. Coords are expanded before projection; the bleed
+        # area gets projected but lands on the canvas edges — i.e. the bleed
+        # is *also* map content, not a transparent margin.
+        self._bleed_mm = spec.get('bleed_mm', 0.0) if bleed_mm is None else bleed_mm
+        # Bleed is a physical print measurement (mm of paper), so it converts to
+        # pixels via the merch spec's DPI — not via the map's geographic scale.
+        self._bleed_px = self._bleed_mm / 25.4 * spec.get('dpi', 300) if self._bleed_mm else 0.0
         self._setup_projection()
 
         palette = dict(STYLES.get(style, STYLES['osm_default']))
@@ -268,6 +278,11 @@ class SVGGenerator:
         the accurate projection for Great Britain. Outside, falls back to the local
         cosine-of-latitude plate carrée (cosLat) since BNG becomes meaningless.
         Either way, per-point work is a linear map from projected metres to SVG pixels.
+
+        Bleed: the projected bbox is *grown* by `bleed_px` metres on each side, so
+        the user's selection no longer fills the full canvas — instead it sits
+        centred with bleed_mm of extra map on every edge. After a trim the cut
+        edge still has map pixels underneath, no white halo.
         """
         west, south, east, north = self._bbox
         env_w, env_s, env_e, env_n = _BNG_ENVELOPE
@@ -279,35 +294,54 @@ class SVGGenerator:
         if self._use_bng:
             e_w, n_s = _bng_transformer.transform(west, south)
             e_e, n_n = _bng_transformer.transform(east, north)
-            self._bbox_origin_e = e_w
-            self._bbox_origin_n = n_s
-            self._bbox_w_m = e_e - e_w
-            self._bbox_h_m = n_n - n_s
-            self._m_per_deg_lon = 0.0  # unused in BNG branch
-            self._m_per_deg_lat = 0.0
+            bbox_w_m = e_e - e_w
+            bbox_h_m = n_n - n_s
         else:
             mid_lat = (south + north) / 2
             self._m_per_deg_lon = math.cos(math.radians(mid_lat)) * 111_320
             self._m_per_deg_lat = 111_320
-            self._bbox_origin_e = 0.0
-            self._bbox_origin_n = 0.0
-            self._bbox_w_m = (east - west) * self._m_per_deg_lon
-            self._bbox_h_m = (north - south) * self._m_per_deg_lat
+            bbox_w_m = (east - west) * self._m_per_deg_lon
+            bbox_h_m = (north - south) * self._m_per_deg_lat
+
+        # bleed_px (physical mm converted via DPI, see generate()) is the same
+        # pixel inset on both axes; convert it to a geographic-metre pad per
+        # axis using that axis's own metres-per-pixel scale.
+        bleed_px = getattr(self, '_bleed_px', 0.0) or 0.0
+        if bleed_px > 0 and self._svg_w > 0 and self._svg_h > 0:
+            bleed_pad_m_x = bleed_px * (bbox_w_m / self._svg_w)
+            bleed_pad_m_y = bleed_px * (bbox_h_m / self._svg_h)
+        else:
+            bleed_pad_m_x = bleed_pad_m_y = 0.0
+
+        if self._use_bng:
+            self._bbox_origin_e = e_w - bleed_pad_m_x
+            self._bbox_origin_n = n_s - bleed_pad_m_y
+            self._bbox_w_m = bbox_w_m + 2 * bleed_pad_m_x
+            self._bbox_h_m = bbox_h_m + 2 * bleed_pad_m_y
+            self._m_per_deg_lon = 0.0  # unused in BNG branch
+            self._m_per_deg_lat = 0.0
+        else:
+            self._bbox_origin_e = -bleed_pad_m_x
+            self._bbox_origin_n = -bleed_pad_m_y
+            self._bbox_w_m = bbox_w_m + 2 * bleed_pad_m_x
+            self._bbox_h_m = bbox_h_m + 2 * bleed_pad_m_y
 
     def _project(self, lon: float, lat: float) -> tuple[float, float]:
         """Project WGS84 lon/lat to SVG pixels.
 
         Inside the GB envelope: EPSG:27700 (British National Grid) — metrically
         accurate. Outside: cosine-of-latitude correction. Per-point work is a
-        linear map from projected metres to SVG pixels.
+        linear map from projected metres to SVG pixels. Both branches express
+        the input in projected metres from `_bbox_origin_e/n` so bleed-padded
+        origins apply uniformly.
         """
         if self._use_bng:
             east_m, north_m = _bng_transformer.transform(lon, lat)
             x_m = east_m - self._bbox_origin_e
             y_m = north_m - self._bbox_origin_n
         else:
-            x_m = (lon - self._west) * self._m_per_deg_lon
-            y_m = (lat - self._south) * self._m_per_deg_lat
+            x_m = (lon - self._west) * self._m_per_deg_lon - self._bbox_origin_e
+            y_m = (lat - self._south) * self._m_per_deg_lat - self._bbox_origin_n
         x = x_m / self._bbox_w_m * self._svg_w
         # SVG Y is inverted (origin top-left), so flip the northing axis.
         y = (1.0 - y_m / self._bbox_h_m) * self._svg_h

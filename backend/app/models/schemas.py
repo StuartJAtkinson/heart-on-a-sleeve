@@ -9,12 +9,14 @@ class BBox(BaseModel):
 
 
 MERCH_SPECS = {
-    "placemat": {"ratio_x": 14, "ratio_y": 10, "dpi": 300, "width_px": 4200, "height_px": 3000},
-    "coaster": {"ratio_x": 1, "ratio_y": 1, "dpi": 300, "width_px": 1000, "height_px": 1000},
-    "tshirt": {"ratio_x": 3, "ratio_y": 4, "dpi": 300, "width_px": 3000, "height_px": 4000},
-    "mug": {"ratio_x": 9, "ratio_y": 3, "dpi": 300, "width_px": 2700, "height_px": 900},
-    "tote": {"ratio_x": 2, "ratio_y": 3, "dpi": 300, "width_px": 2000, "height_px": 3000},
-    "3d_print": {"ratio_x": 1, "ratio_y": 1, "dpi": 150, "width_px": 800, "height_px": 800},
+    # bleed_mm: print-area extension past the trimmed edge so the cut leaves no white halo.
+    # 0 means the user's selection runs edge-to-edge; 3 mm is the typical offset/digital default.
+    "placemat":  {"ratio_x": 14, "ratio_y": 10, "dpi": 300, "width_px": 4200, "height_px": 3000, "bleed_mm": 3.0},
+    "coaster":   {"ratio_x":  1, "ratio_y":  1, "dpi": 300, "width_px": 1000, "height_px": 1000, "bleed_mm": 3.0},
+    "tshirt":    {"ratio_x":  3, "ratio_y":  4, "dpi": 300, "width_px": 3000, "height_px": 4000, "bleed_mm": 3.0},
+    "mug":       {"ratio_x":  9, "ratio_y":  3, "dpi": 300, "width_px": 2700, "height_px":  900, "bleed_mm": 0.0},
+    "tote":      {"ratio_x":  2, "ratio_y":  3, "dpi": 300, "width_px": 2000, "height_px": 3000, "bleed_mm": 3.0},
+    "3d_print":  {"ratio_x":  1, "ratio_y":  1, "dpi": 150, "width_px":  800, "height_px":  800, "bleed_mm": 0.0},
 }
 
 
@@ -30,6 +32,8 @@ class SVGGenerationRequest(BaseModel):
     include_parks: bool = True
     coaster_shape: str = "square"           # 'square' | 'circle' | 'hexagon'
     palette_overrides: dict[str, str] = {}  # per-category hex colour overrides
+    # Override the merch spec's bleed (mm per side). None → use the spec default.
+    bleed_mm: float | None = None
 
 
 class STLGenerationRequest(BaseModel):
