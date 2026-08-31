@@ -280,10 +280,5 @@
   > Found during dev 2026-06-01.
 
 ## Needs input (Auto Continue)
-*Left by Auto Continue 2026-08-03 — decide these, then clear CONSIDERATIONS.md.*
-- The following PRs have failing checks that need human review or investigation:
-
-- PR #42 and #41: "Lint backend (ruff)" check is failing.
-- PR #40: "Smoke tests (pytest)" check is failing.
-- PR #39: "Smoke tests (pytest)" and "Type-check frontend (tsc)" checks are failing.
-- PR #37: "Smoke tests (pytest)" check is failing.
+*Left by Auto Continue 2026-08-31 — decide these, then clear CONSIDERATIONS.md.*
+- PR #46 "build(deps-dev): bump vite from 8.2.1 to 8.2.2 in /frontend/cesium" — check `Lint backend (ruff)` is FAILING against the current head commit (25bc63e). Not merged; needs a human to inspect the lint failure (run: https://github.com/StuartJAtkinson/map-merch/actions/runs/32747823070/job/97497438573).
