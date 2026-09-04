@@ -651,6 +651,10 @@ function getSvgViewerFitBounds(
   return { x: SVG_PANEL_W + (vw - svgW) / 2, y: (H - svgH) / 2, w: svgW, h: svgH };
 }
 
+// Preflight budget: above this the full Overpass fetch reliably times out. Matches the
+// backend's own high→very_high complexity boundary in router.py's /api/estimate.
+const MAX_ELEMENTS = 60_000;
+
 function estimateGenMs(bbox: BBox): number {
   const cosL = Math.cos((bbox.north + bbox.south) / 2 * Math.PI / 180);
   const km2 = (bbox.east - bbox.west) * cosL * 111.32 * (bbox.north - bbox.south) * 111.32;
@@ -1504,6 +1508,9 @@ async function generate(): Promise<void> {
 
 const abort = new AbortController();
   setTimeout(() => abort.abort(), 90_000);
+  // Set by the preflight gate below so the catch block can tell "too detailed" apart
+  // from a plain 90 s timeout — both surface as an AbortError.
+  let preflightRejected: string | null = null;
 
   async function fetchJson(url: string, body: object, signal?: AbortSignal) {
     const r = await fetch(url, {
@@ -1573,6 +1580,17 @@ const abort = new AbortController();
   let estimatedMs = estimateGenMs(bbox) * 2; // rough: osm + svg
   fetchEstimate(bbox, merchType).then(estimate => {
     if (!estimate) return;
+    // Preflight gate. Racing rather than blocking: awaiting the estimate would
+    // serialise two Overpass round-trips, so the real fetch starts immediately and
+    // we abort it if the count comes back over budget. element_count is 0 when the
+    // count query itself failed, so `>` never gates on a missing verdict.
+    // ponytail: 60k reuses the backend's existing high/very_high band boundary
+    // (router.py estimate) rather than inventing a second magic number.
+    if (estimate.element_count > MAX_ELEMENTS) {
+      preflightRejected = `Area too detailed — ${(estimate.element_count / 1000).toFixed(1)}k elements (max ${MAX_ELEMENTS / 1000}k). Make the selection smaller.`;
+      abort.abort();
+      return;
+    }
     estimatedMs = (estimate.svg_estimate_ms ?? estimateGenMs(bbox)) + (estimate.osm_estimate_ms ?? estimateGenMs(bbox));
     const label: Record<string, string> = { low: 'Simple area', medium: 'Medium density', high: 'Complex area', very_high: 'Very complex — may be slow' };
     Status.message(`Generating map… · ${estimate.area_km2} km² · ${(estimate.element_count / 1000).toFixed(1)}k elements · ${label[estimate.complexity] ?? estimate.complexity}`);
@@ -1597,13 +1615,15 @@ const abort = new AbortController();
     ov.style.transition = '';
 
   } catch (err: any) {
-    Status.done();
     const ov = document.getElementById('transition-overlay') as HTMLCanvasElement;
     ov.style.display = 'none';
     ov.style.opacity = '1';
     ov.style.transition = '';
     panel.style.visibility = '';
-    status.textContent = err.name === 'AbortError' ? 'Timed out — try a smaller area' : `Error: ${err.message}`;
+    const msg = preflightRejected
+      ?? (err.name === 'AbortError' ? 'Timed out — try a smaller area' : `Error: ${err.message}`);
+    Status.error(msg);          // status bar is the single home for errors + timeouts
+    status.textContent = msg;   // sidebar echo — keeps the message next to the Retry button
     genBtn.disabled = false; btnText.textContent = 'Retry';
     spinner.style.display = 'none';
     genBtn.onclick = generate;

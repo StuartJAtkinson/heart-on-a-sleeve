@@ -319,6 +319,9 @@ body {
   text-overflow: ellipsis;
 }
 .app-status-bar .status-msg:empty { display: none; }
+/* Error state — the message stays until the next Status.begin() clears it. */
+.app-status-bar.errored .status-msg { color: var(--color-danger); }
+.app-status-bar.errored .status-fill { background: var(--color-danger); opacity: 1; }
 .app-status-bar .status-credits { overflow: hidden; text-overflow: ellipsis; }
 
 /* Shared save block — identical placement/spacing across SVG / 3D / print panels. */

@@ -25,6 +25,7 @@ export const Status = {
     const { barEl, fillEl, msgEl } = els();
     if (doneTimer) { clearTimeout(doneTimer); doneTimer = null; }
     barEl?.classList.add('busy');
+    barEl?.classList.remove('errored');
     if (msgEl) msgEl.textContent = msg;
     if (fillEl) {
       fillEl.style.transition = 'none';
@@ -48,13 +49,24 @@ export const Status = {
     if (msgEl) msgEl.textContent = msg;
   },
 
+  /** Terminal failure — leave the message up in danger colour instead of fading.
+      Cleared by the next begin(). This is the single home for Overpass timeouts,
+      backend 5xx and generation failures. */
+  error(msg: string): void {
+    const { barEl, fillEl, msgEl } = els();
+    if (doneTimer) { clearTimeout(doneTimer); doneTimer = null; }
+    barEl?.classList.add('busy', 'errored');
+    if (fillEl) fillEl.style.width = '100%';
+    if (msgEl) msgEl.textContent = msg;
+  },
+
   /** Fill to 100%, then fade back to the idle (attribution-only) state. */
   done(): void {
     const { barEl, fillEl, msgEl } = els();
     if (fillEl) fillEl.style.width = '100%';
     if (doneTimer) clearTimeout(doneTimer);
     doneTimer = setTimeout(() => {
-      barEl?.classList.remove('busy');
+      barEl?.classList.remove('busy', 'errored');
       if (msgEl) msgEl.textContent = '';
       if (fillEl) {
         fillEl.style.transition = 'none';
