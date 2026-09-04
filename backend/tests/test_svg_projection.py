@@ -9,8 +9,6 @@ Verifies that:
   the cosLat approximation is used at higher latitudes.
 - Fallback: outside the GB envelope, projection still maps the bbox to the canvas.
 """
-import math
-
 import pytest
 from pyproj import Geod, Transformer
 
