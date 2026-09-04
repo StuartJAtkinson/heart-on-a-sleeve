@@ -2,6 +2,8 @@
 
 ## Open
 
+- [ ] **9 dependabot PRs still open and failing — never triaged** — CONSIDERATIONS.md only ever tracked 4 of 13. The rest: **#39** typescript 5.9.3→7.0 (tsc + smoke) — this is the deferred TS 6/7 migration, note `noUncheckedSideEffectImports:false` was already added 2026-08-17 so re-check what still breaks; **#34** three 0.184→0.185.1 (tsc + build frontend) — likely real API breakage in `viewer3d.ts`/`print-viewer.ts`; **#37** pytest bump, **#23** pytest-asyncio (smoke, and #23 also ruff), **#33** aiosqlite (ruff — probably just the stale `import math`, should clear on rebase); **#41** setup-python 6→7, **#36** owslib, **#32** checkout 6→7, **#25** email-validator all show no failures and look mergeable-after-rebase. Triage: rebase the no-failure five first, then #33, then the three genuine ones (#34, #39, and the pytest pair). *(found 2026-09-04)*
+
 ## Resolved (2026-08-17 session)
 
 - [x] **TypeScript 7 breaks side-effect CSS import resolution — blocks dependabot PR #39** — added `"noUncheckedSideEffectImports": false` to `frontend/cesium/tsconfig.json`. TS 6+ tightened side-effect import resolution; the existing `declare module '*.css'` in `src/globals.d.ts` was no longer sufficient under TS 7. The new tsconfig option (no-op on TS ≤ 5.6) reverts the strictness. Reopen if dependabot PR #39 still fails `Type-check frontend (tsc)` after rebase. *(resolved 2026-08-17)*
@@ -279,7 +281,13 @@
   > 
   > Found during dev 2026-06-01.
 
-## Needs input (Auto Continue)
-*Left by Auto Continue 2026-08-31 — decide these, then clear CONSIDERATIONS.md.*
-- PR #46 "build(deps-dev): bump vite from 8.2.1 to 8.2.2 in /frontend/cesium" — check `Lint backend (ruff)` is FAILING against the current head commit (25bc63e). Not merged; needs a human to inspect the lint failure (run: https://github.com/StuartJAtkinson/map-merch/actions/runs/32747823070/job/97497438573).
-- PR #45 "build(deps-dev): bump esbuild from 0.28.0 to 0.28.2 in /frontend/cesium" — check `Lint backend (ruff)` is FAILING against the current head commit. Not merged; needs a human to inspect the lint failure (run: https://github.com/StuartJAtkinson/map-merch/actions/runs/32054502197/job/95461419521).
+## Resolved (2026-09-04 session)
+
+- [x] **Dependabot PRs #42/#45/#46/#47 all blocked, flagged as "needs a human"** — not four problems, two. (1) `Lint backend (ruff)` failed on #45/#46/#47 because of a single unused `import math` at `backend/tests/test_svg_projection.py:12` — ruff was already correctly pinned to 0.15.12, this was a real (if trivial) violation on `main`, so every PR inherited it. Deleted the import (`c582266`). (2) #42's `Smoke tests (pytest)` failure was a stale Overpass 60 s timeout from a run dated 2026-08-03 — i.e. *before* the `OVERPASS_FIXTURE_PATH` cache landed on 2026-08-17 — so it needed a rebase, not a fix. `@dependabot rebase` on all four, all went green, all four merged and branches deleted. Nine other dependabot PRs remain open and are genuinely failing on their own merits (see Open). *(resolved 2026-09-04)*
+- [x] **Preflight element-count gate (ROADMAP "3-region shell" §, was 📋 planned)** — `/api/estimate` now gates generation. Kept racing rather than blocking, because awaiting it would serialise two Overpass round-trips: the OSM fetch starts immediately and is `abort()`ed if the count comes back over `MAX_ELEMENTS = 60_000` (deliberately reuses the backend's own high→very_high complexity band boundary in `router.py` rather than inventing a second threshold). `element_count` is 0 when the count query itself fails, so `>` never gates on a missing verdict. Rejection surfaces in the status bar as "Area too detailed — N k elements". *(resolved 2026-09-04)*
+- [x] **Errors + timeouts surfaced in the status bar (ROADMAP "3-region shell" §, was 📋 not yet done)** — new `Status.error()` in `src/status.ts` holds the message in `--color-danger` (`.app-status-bar.errored`) instead of fading like `done()`; cleared by the next `begin()`. `generate()`'s catch now routes Overpass timeouts, backend errors and the new preflight rejection there, keeping the sidebar echo next to the Retry button. *(resolved 2026-09-04)*
+
+## Superseded
+
+- [x] **PR #42 "build(deps): bump actions/setup-node from 6 to 7"** — merged 2026-09-04, see above.
+- [x] **PR #47 "build(deps): bump actions/cache from 5 to 6"** — merged 2026-09-04, see above.

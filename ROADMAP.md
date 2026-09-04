@@ -488,21 +488,24 @@ stacked at the bottom. So treat sidebar / stage / status as the only three top-l
 - ✅ Shared `.sidebar`/`.stage` shell classes (`app.css`) applied to `#panel`, `#svg-side`,
   `#panel3d`, `#panel-print` — one canonical control order (user-nav → save → options → back)
   across all four views (2026-06-13).
-- 📋 Surface errors + timeouts there (Overpass 502/timeout, generation failures) instead of the
-  sidebar `#status` text / silent `.catch` — not yet done.
+- ✅ Surface errors + timeouts there (Overpass 502/timeout, generation failures) instead of the
+  sidebar `#status` text / silent `.catch`. `Status.error()` holds the message in
+  `--color-danger` until the next `begin()`; `generate()`'s catch routes through it, keeping a
+  sidebar echo next to the Retry button (2026-09-04).
 
-**Preflight element-count gate:**
-- `/api/estimate` already runs a lightweight Overpass `out count` (no geometry) → `element_count`.
-  Run it as a BLOCKING preflight before the heavy fetch (currently `app.ts` starts the OSM fetch
-  immediately and does not await the estimate — see `generate()` around the OSM fetch).
-- If `element_count` > threshold → don't fetch; show "Area too detailed — N elements, make it
-  smaller" in the status bar. Threshold TBD (tune against what the backend/Overpass handle).
-- Bonus: the count query is far lighter than the full fetch, so it's a fast, reliable verdict
-  even when the full Overpass query would time out.
+**Preflight element-count gate:** ✅ done 2026-09-04
+- `/api/estimate` runs a lightweight Overpass `out count` (no geometry) → `element_count`.
+- Implemented as a **race, not a block**: the plan called for awaiting it before the heavy fetch,
+  but that serialises two Overpass round-trips and costs every *valid* selection the count
+  query's latency. Instead `generate()` starts the OSM fetch immediately and `abort()`s it when
+  the estimate comes back over budget — same verdict, no added latency on the happy path.
+- Threshold `MAX_ELEMENTS = 60_000` in `app.ts`, deliberately reusing the backend's own
+  high→very_high complexity band boundary (`router.py`) rather than a second magic number.
+  `element_count` is 0 when the count query itself failed, so `>` never gates on a non-verdict.
+- Rejection shows "Area too detailed — N k elements (max 60k)" via `Status.error()`.
 
-**Status:** 🔶 in progress — status-bar consolidation and shell/panel alignment done; the
-preflight element-count gate itself is still 📋 planned. (User is fine with unfiltered fetch +
-Overpass coin-flips until this lands.)
+**Status:** ✅ done — status-bar consolidation, shell/panel alignment, error/timeout surfacing
+and the preflight gate have all landed.
 
 ---
 
