@@ -1,4 +1,9 @@
 version: 2
+
+# Minor/patch updates are grouped into one PR per ecosystem so they land (and
+# get rebased) together instead of piling up as a dozen stale one-liners.
+# Majors stay ungrouped — those are the ones that actually break the build
+# (typescript 5→7, three 0.184→0.185) and need looking at one at a time.
 updates:
   # npm — frontend
   - package-ecosystem: npm
@@ -8,6 +13,9 @@ updates:
       day: monday
     labels: [dependencies, javascript]
     open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
 
   # pip — backend
   - package-ecosystem: pip
@@ -17,6 +25,9 @@ updates:
       day: monday
     labels: [dependencies, python]
     open-pull-requests-limit: 5
+    groups:
+      pip-minor-patch:
+        update-types: [minor, patch]
 
   # GitHub Actions themselves
   - package-ecosystem: github-actions
@@ -24,3 +35,6 @@ updates:
     schedule:
       interval: monthly
     labels: [dependencies, github-actions]
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]
