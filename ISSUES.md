@@ -2,7 +2,6 @@
 
 ## Open
 
-- [ ] **9 dependabot PRs still open and failing — never triaged** — CONSIDERATIONS.md only ever tracked 4 of 13. The rest: **#39** typescript 5.9.3→7.0 (tsc + smoke) — this is the deferred TS 6/7 migration, note `noUncheckedSideEffectImports:false` was already added 2026-08-17 so re-check what still breaks; **#34** three 0.184→0.185.1 (tsc + build frontend) — likely real API breakage in `viewer3d.ts`/`print-viewer.ts`; **#37** pytest bump, **#23** pytest-asyncio (smoke, and #23 also ruff), **#33** aiosqlite (ruff — probably just the stale `import math`, should clear on rebase); **#41** setup-python 6→7, **#36** owslib, **#32** checkout 6→7, **#25** email-validator all show no failures and look mergeable-after-rebase. Triage: rebase the no-failure five first, then #33, then the three genuine ones (#34, #39, and the pytest pair). *(found 2026-09-04)*
 
 ## Resolved (2026-08-17 session)
 
@@ -122,6 +121,7 @@
 - [x] **Water STL only covers water bodies instead of full base disc** — `_water_piece` now uses full `plate_shape` minus urban as the base layer; land lid sits on top in non-water areas *(resolved 2026-05-29)*
 
 ## Resolved
+- [x] **9 dependabot PRs still open and failing — never triaged** — CONSIDERATIONS.md only ever tracked 4 of 13. The rest: **#39** typescript 5.9.3→7.0 (tsc + smoke) — this is the deferred TS 6/7 migration, note `noUncheckedSideEffectImports:false` was already added 2026-08-17 so re-check what still breaks; **#34** three 0.184→0.185.1 (tsc + build frontend) — likely real API breakage in `viewer3d.ts`/`print-viewer.ts`; **#37** pytest bump, **#23** pytest-asyncio (smoke, and #23 also ruff), **#33** aiosqlite (ruff — probably just the stale `import math`, should clear on rebase); **#41** setup-python 6→7, **#36** owslib, **#32** checkout 6→7, **#25** email-validator all show no failures and look mergeable-after-rebase. Triage: rebase the no-failure five first, then #33, then the three genuine ones (#34, #39, and the pytest pair). *(found 2026-09-04)* — auto-continue *(resolved 2026-09-06)*
 - [x] **Initial 3D-panel inline styles duplicate the shared `#svg-save-status` rule** - `#stl-save-status` and `#print-save-status` now join `#svg-save-status` in one selector list instead of repeating its four declarations inline. *(resolved 2026-08-24)*
 - [x] **`status-3d` / `status-print` / `stats-3d` / `regen-status-print` use inline styles** - all four moved to id-keyed rules next to the save-status block. Margin is the only property that genuinely differed between them (4px vs 6px vs 8px bottom, 4px top), so that stays per-id and the rendering is unchanged; everything else was the same declarations written four ways. *(resolved 2026-08-24)*
 - [x] **`#loading-3d` is `display: none` but `#loading-print` is `display: flex`** - resolved differently from the ledger's suggestion. The proposal was to set both to `none`, but neither id exists anywhere in the repo: the 2026-06-04 consolidation moved loading to the global `.app-status-bar` and removed the elements, leaving only orphan CSS. Both rules deleted rather than aligned. *(resolved 2026-08-24)*
