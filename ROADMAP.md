@@ -184,7 +184,7 @@ git push origin main
 - [x] **Edge clipping** — `<clipPath>` cuts roads/buildings at the canvas boundary
 - [x] Bbox passed from request (not derived from node spread)
 - [x] Proper coordinate projection (pyproj EPSG:27700 for UK)
-- [ ] Bleed margins
+- [x] Bleed margins
 - [ ] Mug wrap perspective
 - [ ] SVG validation
 
