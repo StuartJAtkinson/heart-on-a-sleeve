@@ -65,14 +65,35 @@ const STYLES: Record<string, Palette> = {
 };
 
 // ── Merch pixel dimensions (mirrors Python MERCH_SPECS) ───────────────────────
-export const SVG_SPECS: Record<string, { width_px: number; height_px: number }> = {
-  placemat:  { width_px: 4200, height_px: 3000 },
-  coaster:   { width_px: 1000, height_px: 1000 },
-  tshirt:    { width_px: 3000, height_px: 4000 },
-  mug:       { width_px: 2700, height_px:  900 },
-  tote:      { width_px: 2000, height_px: 3000 },
-  '3d_print':{ width_px:  800, height_px:  800 },
+export const SVG_SPECS: Record<string, {
+  width_px: number; height_px: number; dpi: number; bleed_mm: number;
+}> = {
+  placemat:  { width_px: 4200, height_px: 3000, dpi: 300, bleed_mm: 3 },
+  coaster:   { width_px: 1000, height_px: 1000, dpi: 300, bleed_mm: 3 },
+  tshirt:    { width_px: 3000, height_px: 4000, dpi: 300, bleed_mm: 3 },
+  mug:       { width_px: 2700, height_px:  900, dpi: 300, bleed_mm: 0 },
+  tote:      { width_px: 2000, height_px: 3000, dpi: 300, bleed_mm: 3 },
+  '3d_print':{ width_px:  800, height_px:  800, dpi: 150, bleed_mm: 0 },
 };
+
+/** Bleed for a merch type, in canvas px. mm → px via the spec's DPI: bleed is a
+ *  physical paper measurement, not a map-scale one. */
+export function bleedPx(merchType: string): number {
+  const spec = SVG_SPECS[merchType] ?? SVG_SPECS['tshirt'];
+  return spec.bleed_mm / 25.4 * spec.dpi;
+}
+
+/** How far past the selected bbox the OSM fetch must reach to fill the bleed
+ *  ring with real map instead of bare background. Degrees, [dLon, dLat]. */
+export function bleedDegrees(
+  merchType: string, bbox: [number, number, number, number],
+): [number, number] {
+  const b = bleedPx(merchType);
+  if (!b) return [0, 0];
+  const spec = SVG_SPECS[merchType] ?? SVG_SPECS['tshirt'];
+  const [west, south, east, north] = bbox;
+  return [b * (east - west) / spec.width_px, b * (north - south) / spec.height_px];
+}
 
 // ── Place label styles ────────────────────────────────────────────────────────
 const PLACE_STYLE: Record<string, { size: number; weight: string; upper: boolean }> = {
@@ -106,7 +127,7 @@ function hexPoints(w: number, h: number, inset = 0.01): string {
 function project(
   lon: number, lat: number,
   bbox: [number,number,number,number],
-  W: number, H: number,
+  W: number, H: number, bleed = 0,
 ): [number, number] {
   const [west, south, east, north] = bbox;
   const midLat = (south + north) / 2;
@@ -115,7 +136,11 @@ function project(
   const yM     = (lat - south) * 111_320;
   const bboxW  = (east - west) * cosLat * 111_320;
   const bboxH  = (north - south) * 111_320;
-  return [xM / bboxW * W, (1 - yM / bboxH) * H];
+  // The selected bbox maps to the *trim* box, inset by `bleed` on every side —
+  // so anything fetched beyond the selection lands in the bleed ring and gets
+  // cut off, instead of the cut landing on the user's chosen border.
+  return [bleed + xM / bboxW * (W - 2 * bleed),
+          bleed + (1 - yM / bboxH) * (H - 2 * bleed)];
 }
 
 function pathD(pts: [number,number][], close = false): string {
@@ -158,6 +183,8 @@ export function renderSvg(opts: SvgRenderOptions): SVGSVGElement {
   const spec = SVG_SPECS[merchType] ?? SVG_SPECS['tshirt'];
   const W = opts.width_px  ?? spec.width_px;
   const H = opts.height_px ?? spec.height_px;
+  // Bleed in canvas px, scaled if the caller overrode the canvas size (preview).
+  const BLEED = bleedPx(merchType) * (W / spec.width_px);
 
   // No area-scale filtering — render everything the selection contains. Selection size
   // is hard-capped at the frontend selector, so there is no need to thin out features
@@ -178,7 +205,7 @@ export function renderSvg(opts: SvgRenderOptions): SVGSVGElement {
 
   function wayPts(way: Record<string,unknown>): [number,number][] {
     return ((way.nodes as number[]) ?? [])
-      .map(id => { const n = nodes.get(id); return n ? project(n[0], n[1], bbox, W, H) : null; })
+      .map(id => { const n = nodes.get(id); return n ? project(n[0], n[1], bbox, W, H, BLEED) : null; })
       .filter((p): p is [number,number] => p !== null);
   }
 
@@ -189,7 +216,19 @@ export function renderSvg(opts: SvgRenderOptions): SVGSVGElement {
   };
 
   // Build SVG element
-  const svg = el('svg', { xmlns: NS, width: W, height: H, viewBox: `0 0 ${W} ${H}` }) as SVGSVGElement;
+  // Physical mm size + px viewBox so the file prints at the intended scale, and
+  // data-trim-* so the cut line is machine-readable without printing ink for it.
+  // The canvas is the untrimmed sheet; the trim box is it inset by the bleed.
+  const svg = el('svg', {
+    xmlns: NS,
+    width:  `${+(W / spec.dpi * 25.4).toFixed(3)}mm`,
+    height: `${+(H / spec.dpi * 25.4).toFixed(3)}mm`,
+    viewBox: `0 0 ${W} ${H}`,
+    'data-dpi': spec.dpi,
+    'data-bleed-mm': spec.bleed_mm,
+    'data-trim-x': BLEED, 'data-trim-y': BLEED,
+    'data-trim-width': W - 2 * BLEED, 'data-trim-height': H - 2 * BLEED,
+  }) as SVGSVGElement;
 
   // Clip path
   const defs = el('defs');
@@ -289,7 +328,7 @@ export function renderSvg(opts: SvgRenderOptions): SVGSVGElement {
       const tags = (node.tags ?? {}) as Record<string,string>;
       const st = PLACE_STYLE[tags.place];
       if (!tags.name || !st) continue;
-      const [x, y] = project(node.lon as number, node.lat as number, bbox, W, H);
+      const [x, y] = project(node.lon as number, node.lat as number, bbox, W, H, BLEED);
       const t = el('text', {
         x, y,
         fill: palette['label'] as string,

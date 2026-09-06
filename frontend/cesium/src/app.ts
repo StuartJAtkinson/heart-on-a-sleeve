@@ -1,6 +1,6 @@
 import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
-import { renderSvg, svgToString, svgToBlobUrl, SVG_SPECS } from './svg-renderer';
+import { renderSvg, svgToString, svgToBlobUrl, SVG_SPECS, bleedDegrees } from './svg-renderer';
 import type { Branding, BrandStyle, BrandPos } from './svg-renderer';
 import { Status } from './status';
 
@@ -1093,8 +1093,12 @@ function svgFit() {
 async function svgShow(text: string, initial: boolean) {
   const doc   = new DOMParser().parseFromString(text, 'image/svg+xml');
   const svgEl = doc.documentElement;
-  svgNatW = parseFloat(svgEl.getAttribute('width') || '0');
-  svgNatH = parseFloat(svgEl.getAttribute('height') || '0');
+  // width/height carry print units ("254mm") since the bleed work; those are
+  // physical paper size, not pixels, so only a unitless value is a px count —
+  // otherwise fall through to the viewBox, which is always in px.
+  const px = (v: string | null) => (v && /^[\d.]+$/.test(v.trim()) ? parseFloat(v) : 0);
+  svgNatW = px(svgEl.getAttribute('width'));
+  svgNatH = px(svgEl.getAttribute('height'));
   const vb = svgEl.getAttribute('viewBox');
   if (vb) {
     const p = vb.trim().split(/[\s,]+/).map(Number);
@@ -1540,9 +1544,13 @@ const abort = new AbortController();
   // The estimate makes its own Overpass count query (up to 30s); awaiting it
   // before the real fetch would serialise two Overpass round-trips.
   tPost('osm_request_start', performance.now() - _t0, _area);
+  // Fetch a bleed-ring wider than the selection: the renderer maps the selected
+  // bbox to the trim box, so without this the bleed would be bare background and
+  // the trim edge would show a halo. The area guard above is on the selection.
+  const [_dLon, _dLat] = bleedDegrees(merchType, bboxArr);
   const osmP = fetch(`/api/osm/features?${new URLSearchParams({
-    west: String(bbox.west), south: String(bbox.south),
-    east: String(bbox.east), north: String(bbox.north),
+    west: String(bbox.west - _dLon), south: String(bbox.south - _dLat),
+    east: String(bbox.east + _dLon), north: String(bbox.north + _dLat),
   })}`, { signal: abort.signal })
     .then(async r => {
       if (!r.ok) {

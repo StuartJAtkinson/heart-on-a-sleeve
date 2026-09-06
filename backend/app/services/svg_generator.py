@@ -209,7 +209,23 @@ class SVGGenerator:
         if palette_overrides:
             palette.update(palette_overrides)
 
-        svg = svgwrite.Drawing(size=(str(self._svg_w), str(self._svg_h)))
+        # Physical size in mm + px viewBox, so the file prints at the intended
+        # scale instead of at whatever the RIP assumes. The canvas is the
+        # *untrimmed* sheet: trim box = canvas inset by bleed_px per side, which
+        # is exactly the bbox the user selected. Carried as data-* attributes so
+        # the cut line is machine-readable without printing any ink for it.
+        dpi = spec.get('dpi', 300)
+        # debug=False: svgwrite's validator rejects any data-* attribute.
+        svg = svgwrite.Drawing(size=(f"{self._svg_w / dpi * 25.4:g}mm",
+                                     f"{self._svg_h / dpi * 25.4:g}mm"),
+                               debug=False)
+        svg.viewbox(0, 0, self._svg_w, self._svg_h)
+        svg.attribs['data-dpi'] = dpi
+        svg.attribs['data-bleed-mm'] = self._bleed_mm
+        svg.attribs['data-trim-x'] = self._bleed_px
+        svg.attribs['data-trim-y'] = self._bleed_px
+        svg.attribs['data-trim-width'] = self._svg_w - 2 * self._bleed_px
+        svg.attribs['data-trim-height'] = self._svg_h - 2 * self._bleed_px
 
         # Hard clip — shape depends on merch type and coaster_shape setting.
         clip = svg.defs.add(svg.clipPath(id='map-clip'))

@@ -218,3 +218,29 @@ def test_no_bleed_corners_on_canvas_edges():
     x_ne, _ = gen._project(e, n)
     assert x_sw == pytest.approx(0.0, abs=1e-6)
     assert x_ne == pytest.approx(gen._svg_w, abs=1e-6)
+
+
+def test_generate_declares_physical_size_and_trim_box():
+    """The print file must say how big it is and where the cut goes: mm size for
+    the whole (untrimmed) sheet, px viewBox, and a trim box inset by the bleed on
+    every side — i.e. exactly the bbox the user selected."""
+    import xml.etree.ElementTree as ET
+
+    gen = SVGGenerator(
+        merch_specs={"test": {"width_px": 1000, "height_px": 800, "dpi": 100,
+                              "bleed_mm": 2.54}}
+    )
+    osm = {"elements": [
+        {"type": "node", "id": 1, "lon": -2.595, "lat": 51.460, "tags": {}},
+    ]}
+    root = ET.fromstring(gen.generate(osm_data=osm, merch_type="test",
+                                      bbox=BBOX_GB).getvalue())
+    # 1000 px @ 100 dpi = 254 mm; 800 px = 203.2 mm.
+    assert root.get("width") == "254mm"
+    assert root.get("height") == "203.2mm"
+    # svgwrite emits the viewBox comma-separated; both forms are valid SVG.
+    assert root.get("viewBox").replace(",", " ") == "0 0 1000 800"
+    # 2.54 mm @ 100 dpi = 10 px per side.
+    assert float(root.get("data-trim-x")) == pytest.approx(10.0)
+    assert float(root.get("data-trim-width")) == pytest.approx(980.0)
+    assert float(root.get("data-trim-height")) == pytest.approx(780.0)
