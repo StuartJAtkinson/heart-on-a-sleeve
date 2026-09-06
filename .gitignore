@@ -34,3 +34,6 @@ Thumbs.db
 # Misc
 *.log
 startStop.md
+
+# Generated style ballot (regenerated each UX pass)
+STYLE.html
